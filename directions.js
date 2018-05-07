@@ -415,8 +415,8 @@ async function scrape() {
             const exSellOrderBook = await d.exchanges[direction.exSellName].fetchL2OrderBook(direction.pair)
             await delay(1000) //TODO optimise (wait 1000-(currenttime-lastrequesttime for exchange))
 
-            const estimatedProfit = await est
-            imateDirectionProfit(direction, exBuyOrderBook, exSellOrderBook, budget)
+            const estimatedProfit = await estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBook, budget)
+
             if (estimatedProfit>bestEstimatedProfit) {
                 bestEstimatedProfit = estimatedProfit
                 bestDirection = direction
