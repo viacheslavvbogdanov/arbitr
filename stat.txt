@@ -1,0 +1,32 @@
+START SYMBOL
+  BTC   19%
+  ETH   18%
+  USDT  16%
+  NEO    9%
+  PRL    7%
+
+LOOPS EXCHANGES
+- kukoin (Tokyo, Japan)
+- gateio (Istambul, Turkey)
+- hitbtc
+- bittrex
+- livecoin
+
+DIRECTIONS
+ FROM
+ bittrex    21%
+ gateio     20%
+ hitbtc     20%
+ poloniex   17%
+ binance    12%
+ kraken     5%
+
+ TO
+ hitbtc2    41%
+ livecoin   14%
+ gateio     13%
+ coolcoin   12%
+ binance    9%
+
+
+mongod --dbpath /home/user/mongodb-data

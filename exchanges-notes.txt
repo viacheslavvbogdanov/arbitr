@@ -1,0 +1,11 @@
+
+NAME       wfeeRate
+kukoin     0.001
+
+           info: {    withdrawMinFee:  1,
+                   withdrawMinAmount:  100,
+                     withdrawFeeRate:  0.001,
+ploniex    0.01
+
+
+
