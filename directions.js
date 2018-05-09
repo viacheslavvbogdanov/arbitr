@@ -234,8 +234,8 @@ function printDirections(directions){
             // d.exchanges[tick.exSellName].has.deposit?'+':'-',
             // d.exchanges[tick.exSellName].has.withdraw?'+':'-',
             // _tab,
-            tick.exBuyName, '->', tick.exSellName,
-
+            colR(tick.exBuyName), '->', colL(tick.exSellName),
+            colL(tick.stopMsg ? tick.stopMsg : ' ').darkGray
         )
     })
 }
@@ -260,7 +260,7 @@ function findMaxProfit() {
     // printDirections(filteredDirections)
 }
 
-function findOrderPriceLimit( lots, amount, accumulateLots=false ) {
+function findOrderPriceLimit( lots, amount, accumulateLots=true ) {
     let price = Infinity
     for (let i=0; amount>0 && i<lots.length; i++) {
         let lotPrice = lots[i][0]
@@ -311,7 +311,7 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     const budgetWOFee  = budget - (budget*buyMarketFee)
     //FIND BEST ASK PRICE FOR BUDGET
     const buyPrice = findOrderPriceLimit(exBuyOrderBook.asks, budget)
-
+    assert(!(buyPrice==Infinity), 'buyPrice is Infinity (not enough bids for budget)')
     const baseAmount   = (budgetWOFee / buyPrice).toFixed(buyMarket.precision.amount)
     const buyCost      = baseAmount * buyPrice
     quoteBalance -= buyCost
@@ -335,9 +335,11 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     log( base, exBuy.currencies[base])
     // const baseTransferFeeRate = //TODO
     const baseCurrency = exBuy.currencies[base]
+    var baseTransferFeeRate
     let baseTransferFee = baseCurrency.fee
     if(!baseTransferFee) {
-        baseTransferFee = 0.01
+        baseTransferFeeRate = 0.01
+        baseTransferFee = baseAmount * baseTransferFeeRate
         log('Unknown withdrawal fee. Suppose 1%'.yellow)
     }
     assert((typeof baseCurrency.active == 'undefined') || baseCurrency.active, base+' - base currency is not active')
@@ -356,6 +358,7 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     // const sellPrice     = sellTicker.bid  //TODO Find in market orders
     //Find best bid price for budget
     const sellPrice = findOrderPriceLimit(exSellOrderBook.asks, budget)
+    assert(!(sellPrice==Infinity), 'sellPrice is Infinity (not enough asks for budget)')
     const receivedAmount   = baseExpected //TODO set to
     const sellCost      = receivedAmount * sellPrice
     let quoteBalance2 = sellCost
@@ -377,9 +380,11 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
         //check deposit enabled on MAIN EXCHANGE
         //decrease fee
     const quoteCurrency = exSell.currencies[quote]
+    var quoteTransferFeeRate
     let quoteTransferFee = quoteCurrency.fee
     if(!quoteTransferFee) {
-        quoteTransferFee = 0.01
+        quoteTransferFeeRate = 0.01
+        quoteTransferFee = quoteBalance2 * quoteTransferFeeRate
         log('Unknown withdrawal fee. Suppose 1%'.yellow)
     }
     assert((typeof quoteCurrency.active == 'undefined') || quoteCurrency.active, quote+' - quote currency is not active')
@@ -388,7 +393,7 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     // const baseTransferFeeCost = baseAmount * baseTransferFee
     const quoteExpected = quoteBalance2 - quoteTransferFee
     // log('Transferring'.blue, baseAmount, 'fee', baseTransferFee, base, 'fee cost', baseTransferCost, base, 'expected',baseExpected,base)
-    log('Transferring'.blue, quoteBalance2, quote, 'fee', quoteTransferFee, base, 'expected',quoteExpected,quote)
+    log('Transferring'.blue, quoteBalance2, quote, 'fee', quoteTransferFee, quote, 'expected',quoteExpected,quote)
         //REAL:
             //WITHDRAW FROM SELL EXCHANGE TO BUY EXCHANGE
             //WAIT TRANSFER COMPLETED (Check BUY EXCHANGE balance)
@@ -427,9 +432,9 @@ async function scrape() {
             const quote = buyMarket.quote
 
             let budget = 0.05
-            if (quote=='BTC')  budget = 0.05
-            if (quote=='ETH')  budget = 1
-            if (quote=='USDT') budget = 500
+            if (quote=='BTC')  budget = 0.02
+            if (quote=='ETH')  budget = 0.4
+            if (quote=='USDT') budget = 200
 
             const exBuyOrderBook  = await d.exchanges[direction.exBuyName].fetchL2OrderBook(direction.pair)
             const exSellOrderBook = await d.exchanges[direction.exSellName].fetchL2OrderBook(direction.pair)
@@ -445,6 +450,7 @@ async function scrape() {
                 }
             } catch(e) {
                 log('[EST] '+e.message.toString().red)
+                direction.stopMsg = e.message
             }
         }
         if(bestDirection) {
