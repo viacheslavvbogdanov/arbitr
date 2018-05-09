@@ -1,6 +1,7 @@
 
 NAME       wfeeRate
-kukoin     0.001
+kukoin     0.01 ETH minimumfee
+            0.001
 
            info: {    withdrawMinFee:  1,
                    withdrawMinAmount:  100,

@@ -226,6 +226,7 @@ function printDirections(directions){
             colR(tick.difLast.toFixed(2)+'%'),
             colR(tick.difBidAsk.toFixed(2)+'%'),
             colR(tick.difdif.toFixed(0)+'%',5),
+            colR(tick.estimatedProfit ? tick.estimatedProfit.toFixed(2)+'%': ''),
             colR(tick.pair.blue),
             colR(tick.minQuoteVolume.toFixed(0)), _tab,
             // d.exchanges[tick.exBuyName].has.deposit?'+':'-',
@@ -333,7 +334,13 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
         //check deposit enabled on SELL EXCHANGE
     log( base, exBuy.currencies[base])
     // const baseTransferFeeRate = //TODO
-    const baseTransferFee = exBuy.currencies[base].fee
+    const baseCurrency = exBuy.currencies[base]
+    let baseTransferFee = baseCurrency.fee
+    if(!baseTransferFee) {
+        baseTransferFee = 0.01
+        log('Unknown withdrawal fee. Suppose 1%'.yellow)
+    }
+    assert((typeof baseCurrency.active == 'undefined') || baseCurrency.active, base+' - base currency is not active')
     // assert(baseTransferFee,'baseTransferFee not defined')
     //TODO check fee defined
     // const baseTransferFeeCost = baseAmount * baseTransferFee
@@ -369,7 +376,13 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
         //check qute money deposit address on EX1
         //check deposit enabled on MAIN EXCHANGE
         //decrease fee
-    const quoteTransferFee = exSell.currencies[quote].fee
+    const quoteCurrency = exSell.currencies[quote]
+    let quoteTransferFee = quoteCurrency.fee
+    if(!quoteTransferFee) {
+        quoteTransferFee = 0.01
+        log('Unknown withdrawal fee. Suppose 1%'.yellow)
+    }
+    assert((typeof quoteCurrency.active == 'undefined') || quoteCurrency.active, quote+' - quote currency is not active')
     // assert(baseTransferFee,'baseTransferFee not defined')
     //TODO check fee defined
     // const baseTransferFeeCost = baseAmount * baseTransferFee
@@ -409,27 +422,40 @@ async function scrape() {
             log('Estimate direction'.blue)
             printDirections([direction])
             // log( 'Best direction'.green, d.bestDirection)
+            const exBuy  = d.exchanges[direction.exBuyName]
+            const buyMarket  = exBuy.markets[direction.pair]
+            const quote = buyMarket.quote
+
             let budget = 0.05
+            if (quote=='BTC')  budget = 0.05
+            if (quote=='ETH')  budget = 1
+            if (quote=='USDT') budget = 500
 
             const exBuyOrderBook  = await d.exchanges[direction.exBuyName].fetchL2OrderBook(direction.pair)
             const exSellOrderBook = await d.exchanges[direction.exSellName].fetchL2OrderBook(direction.pair)
             await delay(1000) //TODO optimise (wait 1000-(currenttime-lastrequesttime for exchange))
-
-            const estimatedProfit = await estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBook, budget)
-
-            if (estimatedProfit>bestEstimatedProfit) {
-                bestEstimatedProfit = estimatedProfit
-                bestDirection = direction
-                bestBudget = budget
+            try {
+                const estimatedProfitRate = await estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBook, budget)
+                const estimatedProfit = (estimatedProfitRate * 100 - 100)
+                direction.estimatedProfit = estimatedProfit
+                if (estimatedProfit>bestEstimatedProfit) {
+                    bestEstimatedProfit = estimatedProfit
+                    bestDirection = direction
+                    bestBudget = budget
+                }
+            } catch(e) {
+                log('[EST] '+e.message.toString().red)
             }
         }
         if(bestDirection) {
             log(' ')
-            log('Best estimated profit'.yellow, (bestEstimatedProfit * 100 - 100).toFixed(2), '% for budget', bestBudget)
+            printDirections(d.filteredDirections)
+            dbInsertMany(d.filteredDirections)
+            log(' ')
+            log('Best estimated profit'.yellow, bestEstimatedProfit.toFixed(2), '% for budget', bestBudget)
             bestDirection.bestEstimatedProfit = bestEstimatedProfit
             bestDirection.bestBudget = bestBudget
             printDirections([bestDirection])
-            dbInsertMany([bestDirection])
         }else{
             log('No best direction found'.yellow)
         }
