@@ -70,9 +70,9 @@ let d = {} // Main data variable
 // // No trade sources
 // rmExchange('coinmarketcap')
 // d.exchangeNames = ['hitbtc','hitbtc2','binance','yobit'] //VD
-d.exchangeNames = ['hitbtc','hitbtc2','binance','gateio',
-         'bittrex','kucoin','livecoin','dsx']
-// d.exchangeNames = ['binance','bittrex','poloniex']
+// d.exchangeNames = ['hitbtc','hitbtc2','binance','gateio',
+//          'bittrex','kucoin','livecoin','dsx']
+d.exchangeNames = ['binance','bittrex','poloniex']
 /// -kraken
 // -cryptopia
 // -liqui

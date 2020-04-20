@@ -64,7 +64,8 @@ rmExchange('coinegg')    // [ExchangeNotAvailable]
 // No trade sources
 // rmExchange('coinmarketcap')
 
-d.exchangeNames = ['hitbtc','gateio','kucoin','livecoin','liqui','bittrex']
+d.exchangeNames = ['binance','bittrex','bytetrade','ftx',
+'idex','kraken', 'poloniex', 'upbit']
 
 function propsCount( o ) {
     let count = 0
@@ -80,6 +81,7 @@ function propsCount( o ) {
 function getAllTickers() {
     _.each( d.exchangeNames, async (name) => {
         try {
+            log(name)
             let exchange = new ccxt[name] ()
             if (!d[name]) d[name] = {}
             const e = d[name]
@@ -103,8 +105,9 @@ function getAllTickers() {
             //Filter by profit and volume
             const unsortedChains =
                 // ants.filterChains(allChains, 0.001, 5, null)
-            ants.filterChains(allChains, 0.001, 5, 'BTC')
-            const chains = _.sortBy(unsortedChains, 'profit' )
+                ants.filterChains(allChains, 0.0001, 1, 'BTC')
+            // const chains = _.sortBy(unsortedChains, 'profit' )
+            const chains = _.sortBy(allChains, 'profit' )
 
             if (chains.length>0) {
                 log(' ')
@@ -239,7 +242,7 @@ mongoClient.connect(url, function(err, database){
     chainsCollection      = db.collection("deals")
 
     work()
-    setInterval( work, 15*sec)
+    setInterval( work, 30*sec)
 
 })
 

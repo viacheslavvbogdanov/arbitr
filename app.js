@@ -2,8 +2,8 @@
 const debug = require('debug')('http');
 const fs = require('fs');
 const _ = require('underscore');
-const Exchanges = require('crypto-exchange');
-const Ex = Exchanges;
+//const Exchanges = require('crypto-exchange');
+// Ex = Exchanges;
 
 console.log('\033c'); // Clear screen
 debug('booting' );
@@ -126,8 +126,8 @@ function findMaxProfit() {
             ticks[pair].pair = pair;
             ticks[pair].exBuy = f.exchange;
             ticks[pair].exSell = l.exchange;
-            ticks[pair].difLast = difLast;
-            ticks[pair].difBidAsk = difBidAsk;
+            ticks[pair].difLast = dif;
+            ticks[pair].difBidAsk = difb;
             // console.log(ticks[pair]);
         } else delete ticks[pair];
     });
