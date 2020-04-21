@@ -42,7 +42,7 @@ function dbInsertMany(arr) {
                 return log('[DB]'.red, err.message.lightGray)
             } else {
                 mongodb = database.db('stalker')
-                filteredCollection = mongodb.collection("chances")
+                filteredCollection = mongodb.collection("chances2")
                 insertMany(arr)
             }
         })
@@ -139,6 +139,8 @@ function findDirections(ticks){
             dir.exSell = l
             dir.exBuyName = f.exchange
             dir.exSellName = l.exchange
+            dir.direction = f.exchange+' -> '+l.exchange
+            dir.chance = dir.direction+' ('+dir.pair+')'
             const minQuoteVolume = Math.min(
                 f.quoteVolume,
                 l.quoteVolume)
