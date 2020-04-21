@@ -14,6 +14,14 @@ const _tab="\t"
 //const keys = require ('./keys.js')
 const keys = []
 
+const DEBUG = false
+const debug = DEBUG ? log : function(){};
+
+const config = {
+    minDifBidAsk: 3,  // in percents
+    maxDifDif:    20
+}
+
 
 const mongoClient = require("mongodb").MongoClient
 const url = "mongodb://localhost:27017/stalker"
@@ -24,7 +32,7 @@ function dbInsertMany(arr) {
             if(err){
                 return log('[DB]'.red, result, err)
             } else {
-                log(('[DB] Saved docs n'+result.result.n).lightGray,  )
+                log(('[DB] Saved docs '+result.result.n).lightGray,  )
             }
         })
     }
@@ -34,7 +42,7 @@ function dbInsertMany(arr) {
                 return log('[DB]'.red, err.message.lightGray)
             } else {
                 mongodb = database.db('stalker')
-                filteredCollection = mongodb.collection("directions")
+                filteredCollection = mongodb.collection("chances")
                 insertMany(arr)
             }
         })
@@ -54,21 +62,22 @@ d.exchangeNames = ccxt.exchanges
 let rmExchange = function( name ) {
     d.exchangeNames.splice(d.exchangeNames.indexOf(name), 1)
 }
-// // remove auth-needed exchanges
+// // remove some exchanges
 // rmExchange('_1broker')   // require api key
 
-// d.exchangeNames = ['hitbtc','hitbtc2','binance','yobit'] //VD
-// d.exchangeNames = ['hitbtc','hitbtc2','binance','gateio',
-//          'bittrex','kucoin','livecoin','dsx']
-d.exchangeNames = ['binance','bittrex','poloniex']
 
-function colR( val, width=10) {
+// d.exchangeNames = ['binance','bitfinex','bittrex',//'bytetrade',
+//                     'ftx','idex','kraken','poloniex','upbit']
+//
+// d.exchangeNames = ['binance','bittrex','poloniex']
+
+function colR( val, width=12) {
     let text = val.toString()
     let spaces = width-text.length
     while (spaces<=0) spaces+=width
     return Array(spaces).join(' ') + text
 }
-function colL( val, width=10) {
+function colL( val, width=12) {
     let text = val ? val.toString() : 'undefined'
     let spaces = width-text.length
     while (spaces<=0) spaces+=width
@@ -92,18 +101,18 @@ function aggregateTickers(exchangesReceived, exchangesTickers){
         const tickers = exchangesTickers[exchangeName]
         // log( exchangeName.blue, propsCount(tickers) )
         _.map( tickers, function( num, pair ) {
-            // console.log( num, pair );
-            let v = ticks[pair]
-            if (!v) v = {}
-            let a = tickers[pair]
-            a['exchange'] = exchangeName
-            a['pair'] = pair
-            v[exchangeName] = tickers[pair]
-            ticks[pair] =  v
-            return ticks[pair]
-        })
+        // console.log( num, pair );
+        let v = ticks[pair]
+        if (!v) v = {}
+        let a = tickers[pair]
+        a['exchange'] = exchangeName
+        a['pair'] = pair
+        v[exchangeName] = tickers[pair]
+        ticks[pair] =  v
+        return ticks[pair]
     })
-    console.log( 'Aggregated', ticks );
+})
+     // console.log( 'Aggregated', ticks );
     // console.log( 'BTC/USD', ticks['BTC/USD'] );
     return ticks
 }
@@ -149,14 +158,14 @@ function filterDirections(directions, quote=null, minQuoteVolume=1, minDifBidAsk
         // log( name, 'Tick', tick )
 
         if (dir.minQuoteVolume>=minQuoteVolume
-            && dir.difBidAsk>=minDifBidAsk //&& tick.exBuy.ask>0
-            && dir.exBuyName!==dir.exSellName
-            && dir.difdif<=maxDifDif
-        && (!quote || dir.pair.indexOf('/'+quote) !== -1)
-        ) {
-            filteredDirections.push(dir)
-        }
-    })
+    && dir.difBidAsk>=minDifBidAsk //&& tick.exBuy.ask>0
+    && dir.exBuyName!==dir.exSellName
+    && dir.difdif<=maxDifDif
+    && (!quote || dir.pair.indexOf('/'+quote) !== -1)
+) {
+        filteredDirections.push(dir)
+    }
+})
     return filteredDirections
 }
 
@@ -170,6 +179,8 @@ async function getAllTickers() {
         try {
             let exchange = new ccxt[name] ()
             log(name)
+            // console.log('exchange', exchange)
+            exchange.timeout = 30000
             // exchange.key    = keys[name].key
             // exchange.secret = keys[name].secret
             d.exchanges[name] = exchange
@@ -182,7 +193,10 @@ async function getAllTickers() {
             d.exchangesReceived.push(name)
             // log(' ')
             log( ++exchangesReceivedCount, ".", colL(name.green), colR(propsCount(tickers)),
-                exchange.has.deposit?'+':'-', exchange.has.withdraw?'+':'-' )
+                exchange.has.deposit?'D+':'d-'.darkGray,
+                exchange.has['fetchDepositAddress']?'FD+':'fd-'.darkGray,
+                exchange.has['createDepositAddress']?'CD+':'cd-'.darkGray,
+                exchange.has.withdraw?'W+':'w-'.darkGray )
             // const currency = exchange.currencies['ETH']
             // log('ETH precision:',currency.precision, 'fee:',colL(currency.fee),
             //     'Address:',currency.address)
@@ -191,9 +205,10 @@ async function getAllTickers() {
             // findMaxProfit()
         } catch (e) {
             if (e.message.indexOf('fetchTickers')===-1 ) {
-                if (e.message.indexOf(' GET ') === -1)
-                    log('[UNHANDLED]'.red, e.message, e)
-                else
+                if (e.message.indexOf(' GET ') === -1) {
+                    log('[UNHANDLED]'.red, e.message)
+                    debug(e)
+                } else
                     log( '[TIMEOUT]'.lightGray, name)
             }
         }
@@ -202,15 +217,30 @@ async function getAllTickers() {
 }
 
 function printDirections(directions){
-    _.each( directions, (tick) => {
+    log(
+        colR('difBidAsk'.green),
+        colR('difLast'.green),
+        colR('dif'.green,5),
+        colR(''),
+        colR('pair'.green,12),
+        colR('minQVol'.green), _tab,
+        // d.exchanges[tick.exBuyName].has.deposit?'+':'-',
+        // d.exchanges[tick.exBuyName].has.withdraw?'+':'-', '->',
+        // d.exchanges[tick.exSellName].has.deposit?'+':'-',
+        // d.exchanges[tick.exSellName].has.withdraw?'+':'-',
+        // _tab,
+        colR('exBuy'.green), '  ', colL('exSell'.green),
+        colL('stopMsg'.green)
+    )
+    _.each( _.sortBy(directions,'difBidAsk'), (tick) => {
         // if (d.exchanges[tick.exBuyName].has.withdraw &&
         //     d.exchanges[tick.exSellName].has.deposit)
         if (tick) log(
-            colR(tick.difLast.toFixed(2)+'%'),
             colR(tick.difBidAsk.toFixed(2)+'%'),
+            colR(tick.difLast.toFixed(2)+'%'),
             colR(tick.difdif.toFixed(0)+'%',5),
             colR(tick.estimatedProfit ? tick.estimatedProfit.toFixed(2)+'%': ''),
-            colR(tick.pair.blue),
+            colR(tick.pair.blue, 12),
             colR(tick.minQuoteVolume.toFixed(0)), _tab,
             // d.exchanges[tick.exBuyName].has.deposit?'+':'-',
             // d.exchanges[tick.exBuyName].has.withdraw?'+':'-', '->',
@@ -218,27 +248,29 @@ function printDirections(directions){
             // d.exchanges[tick.exSellName].has.withdraw?'+':'-',
             // _tab,
             colR(tick.exBuyName), '->', colL(tick.exSellName),
-            colL(tick.stopMsg ? tick.stopMsg : ' ').darkGray
+            colL(tick.stopMsg ? tick.stopMsg : ' ').red
         )
     })
 }
 
 function findMaxProfit() {
-    // console.time("findMaxProfit");
+    console.time("findMaxProfit");
     const ticks = aggregateTickers(d.exchangesReceived, d.tr)
 
     // Find directions
     const directions = findDirections(ticks)
-    d.directions = directions // save in global object
+    d.directions = directions // save to global object
 
     // const filteredDirections = filterDirections(directions, null, 5, 5, 5)
-    const filteredDirections = filterDirections(directions, null, 0, 0, 0)
+    const filteredDirections = filterDirections(
+        directions, null, 0, config.minDifBidAsk, config.maxDifDif)
+
     d.filteredDirections = filteredDirections
 
     // d.bestDirection = _.last(filterDirections(directions, 'ETH', 5, 5, 20))
     // d.bestDirection = _.last(filterDirections(directions, null, 5, 5, 5))
 
-    // console.timeEnd("findMaxProfit");
+    console.timeEnd("findMaxProfit");
     // log( '')
     // log( 'Best pairs for', Object.keys(d.tr).length, 'exchanges')
     // printDirections(filteredDirections)
@@ -288,7 +320,7 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
 
     //BUY BASE ASSETS ON MAIN EXCHANGE
     log('Buying', base, 'for', budget, quote, 'on', direction.exBuyName)
-    log('buyMarket',buyMarket)
+    debug('buyMarket',buyMarket)
     //FIND BEST PRICE FOR BUDGET IN BUY EXCHANGE MARKET ORDERS
     //BUY (CONVERT)
     const buyMarketFee = buyMarket.taker
@@ -305,26 +337,26 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     const buyFullCost   = budgetWOFee + buyFee
     log('Purchase'.blue, baseAmount, base, 'by price', buyPrice, quote)
     log('for budget', buyCost, '+ fee', buyFee, '=',buyFullCost, quote)
-        //REAL:
-            //PLACE ORDER
-            //WAIT FOR COMPLETE
+    //REAL:
+    //PLACE ORDER
+    //WAIT FOR COMPLETE
 
     //TRANSFER BASE ASSETS
-        //check base asset withdrawal
-        //check withdrawal enabled (currency.status) on MAIN EXCHANGE
-        //check minimum withdrawal amount
-        //check maximum withdrawal amount
-        //check base asset deposit address
-        //check deposit enabled on SELL EXCHANGE
-    log( base, exBuy.currencies[base])
+    //check base asset withdrawal
+    //check withdrawal enabled (currency.status) on MAIN EXCHANGE
+    //check minimum withdrawal amount
+    //check maximum withdrawal amount
+    //check base asset deposit address
+    //check deposit enabled on SELL EXCHANGE
+    debug( base, exBuy.currencies[base])
     // const baseTransferFeeRate = //TODO
     const baseCurrency = exBuy.currencies[base]
     var baseTransferFeeRate
     let baseTransferFee = baseCurrency.fee
     if(!baseTransferFee) {
-        baseTransferFeeRate = 0.01
+        baseTransferFeeRate = 0.0025
         baseTransferFee = baseAmount * baseTransferFeeRate
-        log('Unknown withdrawal fee. Suppose 1%'.yellow)
+        log('Unknown withdrawal fee. Suppose '.yellow, baseTransferFeeRate*100,'%')
     }
     assert((typeof baseCurrency.active == 'undefined') || baseCurrency.active, base+' - base currency is not active')
     // assert(baseTransferFee,'baseTransferFee not defined')
@@ -333,9 +365,9 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     const baseExpected = baseAmount - baseTransferFee
     // log('Transferring'.blue, baseAmount, 'fee', baseTransferFee, base, 'fee cost', baseTransferFeeCost, base, 'expected',baseExpected,base)
     log('Transferring'.blue, baseAmount, 'fee', baseTransferFee, base, 'expected',baseExpected,base)
-        //REAL:
-            //WITHDRAW
-            //WAIT TRANFER COMPLETED (Check SELL EXCHANGE balance)
+    //REAL:
+    //WITHDRAW
+    //WAIT TRANFER COMPLETED (Check SELL EXCHANGE balance)
 
     //SELL ASSETS ON SELL EXCHANGE
     const sellMarketFee = sellMarket.taker
@@ -352,24 +384,24 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     const sellFullCost   = sellCost - sellFee
     log('Selling'.blue, receivedAmount, base, 'by price', sellPrice, quote)
     log('cost', sellCost, '+ fee', sellFee, '=',sellFullCost, quote)
-        //REAL:
-            //PLACE ORDER
-            //WAIT FOR COMPLETE
+    //REAL:
+    //PLACE ORDER
+    //WAIT FOR COMPLETE
 
     //TRANSFER QUOTE MONEY BACK TO MAIN EXCHANGE
-    log( quote, exSell.currencies[quote])
-        //check qote money withdrawal on EX2
-        //check withdrawal enabled on SELL EXCHANGE
-        //check qute money deposit address on EX1
-        //check deposit enabled on MAIN EXCHANGE
-        //decrease fee
+    debug( quote, exSell.currencies[quote])
+    //check qote money withdrawal on EX2
+    //check withdrawal enabled on SELL EXCHANGE
+    //check qute money deposit address on EX1
+    //check deposit enabled on MAIN EXCHANGE
+    //decrease fee
     const quoteCurrency = exSell.currencies[quote]
     var quoteTransferFeeRate
     let quoteTransferFee = quoteCurrency.fee
     if(!quoteTransferFee) {
-        quoteTransferFeeRate = 0.01
+        quoteTransferFeeRate = 0.0025
         quoteTransferFee = quoteBalance2 * quoteTransferFeeRate
-        log('Unknown withdrawal fee. Suppose 1%'.yellow)
+        log('Unknown withdrawal fee. Suppose '.yellow, quoteTransferFeeRate*100,'%')
     }
     assert((typeof quoteCurrency.active == 'undefined') || quoteCurrency.active, quote+' - quote currency is not active')
     // assert(baseTransferFee,'baseTransferFee not defined')
@@ -378,9 +410,9 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     const quoteExpected = quoteBalance2 - quoteTransferFee
     // log('Transferring'.blue, baseAmount, 'fee', baseTransferFee, base, 'fee cost', baseTransferCost, base, 'expected',baseExpected,base)
     log('Transferring'.blue, quoteBalance2, quote, 'fee', quoteTransferFee, quote, 'expected',quoteExpected,quote)
-        //REAL:
-            //WITHDRAW FROM SELL EXCHANGE TO BUY EXCHANGE
-            //WAIT TRANSFER COMPLETED (Check BUY EXCHANGE balance)
+    //REAL:
+    //WITHDRAW FROM SELL EXCHANGE TO BUY EXCHANGE
+    //WAIT TRANSFER COMPLETED (Check BUY EXCHANGE balance)
     quoteBalance += quoteExpected
     const profit = quoteBalance / startQuoteBalance
     printDirections([direction])
@@ -389,18 +421,10 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     return profit
 }
 
-async function scrape() {
-// Store last calculated directions (if any)
-    log('Scrape started')
-    await getAllTickers()
-    log('All tickers fetched')
-
-    findMaxProfit()
-    printDirections( d.filteredDirections )
-
+async function emulateDirections() {
     if (d.filteredDirections && d.filteredDirections.length>0) {
         log('Saving to DB filtered directions'.lightGray)
-        printDirections( d.filteredDirections )
+        //printDirections( d.filteredDirections )
         // console.log(d.filteredDirections)
         // dbInsertMany(d.filteredDirections)
 
@@ -419,8 +443,8 @@ async function scrape() {
 
             let budget = 0.05
             if (quote=='BTC')  budget = 0.02
-            if (quote=='ETH')  budget = 0.4
-            if (quote=='USDT') budget = 200
+            if (quote=='ETH')  budget = 0.5
+            if (quote=='USDT') budget = 100
 
             const exBuyOrderBook  = await d.exchanges[direction.exBuyName].fetchL2OrderBook(direction.pair)
             const exSellOrderBook = await d.exchanges[direction.exSellName].fetchL2OrderBook(direction.pair)
@@ -456,9 +480,32 @@ async function scrape() {
 
 }
 
-scrape()
+async function scrape() {
+// Store last calculated directions (if any)
+    log('Scrape started')
+    console.time("getAndFind");
+    await getAllTickers()
+    log('All tickers fetched')
 
+    findMaxProfit()
+    printDirections( d.filteredDirections )
+    dbInsertMany(d.filteredDirections)
+    console.timeEnd("getAndFind");
+
+    // await emulateDirections()
+
+}
+
+async function process() {
+    do {
+
+        await scrape()
+        await delay(60000)
+    } while (true)
+}
 // db.close();
+
+process()
 
 
 
