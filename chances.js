@@ -18,10 +18,23 @@ const DEBUG = false
 const debug = DEBUG ? log : function(){};
 
 const config = {
-    minDifBidAsk: 20,  // in percents
+    minDifBidAsk: 10,  // in percents
     maxDifDif:    20,
     mongoDBCollection: "chances4"
 }
+
+let filteredCollection
+let d = {} // Main data variable
+
+d.exchangeNames = ccxt.exchanges
+let rmExchange = function( name ) {
+    d.exchangeNames.splice(d.exchangeNames.indexOf(name), 1)
+}
+// // remove some exchanges
+// rmExchange('_1broker')   // require api key
+// d.exchangeNames = ['hitbtc','gateio','livecoin', 'crex24',
+//     'whitebit','hitbtc2','bitz','exmo']//,'livecoin']
+// d.exchangeNames = ['binance','bittrex','poloniex']
 
 
 const mongoClient = require("mongodb").MongoClient
@@ -52,24 +65,8 @@ function dbInsertMany(arr) {
 }
 
 
-
 // let tickersCollection
 // let directionsCollection
-let filteredCollection
-
-let d = {} // Main data variable
-
-d.exchangeNames = ccxt.exchanges
-let rmExchange = function( name ) {
-    d.exchangeNames.splice(d.exchangeNames.indexOf(name), 1)
-}
-// // remove some exchanges
-// rmExchange('_1broker')   // require api key
-
- d.exchangeNames = ['hitbtc','gateio','livecoin', 'crex24',
-                    'whitebit','hitbtc2','bitz','exmo']//,'livecoin']
-//
-// d.exchangeNames = ['binance','bittrex','poloniex']
 
 function colR( val, width=12) {
     let text = val.toString()
@@ -374,7 +371,8 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
         baseTransferFee = baseAmount * baseTransferFeeRate
         log('Unknown withdrawal fee. Suppose '.yellow, baseTransferFeeRate*100,'%')
     }
-    assert((typeof baseCurrency.active == 'undefined') || baseCurrency.active, base+' - base currency is not active')
+    assert((typeof baseCurrency.active == 'undefined') || baseCurrency.active,
+        base+' - base currency is not active')
     // assert(baseTransferFee,'baseTransferFee not defined')
     //TODO check fee defined
     // const baseTransferFeeCost = baseAmount * baseTransferFee
@@ -481,6 +479,7 @@ async function emulateDirections() {
         }
         if(bestDirection) {
             log(' ')
+            printDirections(d.filteredDirections)
             d.liveDirections =_.filter(d.filteredDirections, dir => dir.estimatedProfit>0)
             printDirections(d.liveDirections)
             dbInsertMany(d.liveDirections)
