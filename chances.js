@@ -5,9 +5,9 @@
 
 "use strict"
 const assert = require('assert')
-const ccxt  = require('ccxt')
-const _     = require('underscore')
-const log   = require ('ololog').configure ({ locate: false })
+const ccxt   = require('ccxt')
+const _      = require('underscore')
+const log    = require ('ololog').configure ({ locate: false })
 require ('ansicolor').nice
 const delay = ms => new Promise(res => setTimeout(res, ms))
 const _tab="\t"
@@ -18,8 +18,9 @@ const DEBUG = false
 const debug = DEBUG ? log : function(){};
 
 const config = {
-    minDifBidAsk: 3,  // in percents
-    maxDifDif:    20
+    minDifBidAsk: 20,  // in percents
+    maxDifDif:    20,
+    mongoDBCollection: "chances4"
 }
 
 
@@ -36,13 +37,13 @@ function dbInsertMany(arr) {
             }
         })
     }
-    if (!filteredCollection) {
+    if (!filteredCollection && arr) {
         mongoClient.connect(url, function(err, database) {
             if (err) {
                 return log('[DB]'.red, err.message.lightGray)
             } else {
                 mongodb = database.db('stalker')
-                filteredCollection = mongodb.collection("chances2")
+                filteredCollection = mongodb.collection(config.mongoDBCollection)
                 insertMany(arr)
             }
         })
@@ -65,9 +66,8 @@ let rmExchange = function( name ) {
 // // remove some exchanges
 // rmExchange('_1broker')   // require api key
 
-
-// d.exchangeNames = ['binance','bitfinex','bittrex',//'bytetrade',
-//                     'ftx','idex','kraken','poloniex','upbit']
+ d.exchangeNames = ['hitbtc','gateio','livecoin', 'crex24',
+                    'whitebit','hitbtc2','bitz','exmo']//,'livecoin']
 //
 // d.exchangeNames = ['binance','bittrex','poloniex']
 
@@ -186,10 +186,24 @@ async function getAllTickers() {
             // exchange.key    = keys[name].key
             // exchange.secret = keys[name].secret
             d.exchanges[name] = exchange
-            let markets = await exchange.loadMarkets()
+            let allMarkets = await exchange.loadMarkets()
+            let markets = {}
+            _.each( allMarkets, (market, pair) => {
+                if (market.active) markets[pair] = market
+            })
+
             d.exchanges[name].markets = markets
+            // console.log('markets', markets)
+
             await delay(1000)
-            let tickers = await exchange.fetchTickers() // Not all exchanges supports 'get all in once'
+
+            let allTickers = await exchange.fetchTickers() // Not all exchanges supports 'get all in once'
+            let tickers = {}
+            _.each( allTickers, (ticker, pair) => {
+                if(markets[pair].active) tickers[pair] = ticker
+            })
+            // console.log('tickers', tickers)
+
             d.exchanges[name].tickers = tickers
             d.tr[name] = tickers
             d.exchangesReceived.push(name)
@@ -425,7 +439,7 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
 
 async function emulateDirections() {
     if (d.filteredDirections && d.filteredDirections.length>0) {
-        log('Saving to DB filtered directions'.lightGray)
+        // log('Saving to DB filtered directions'.lightGray)
         //printDirections( d.filteredDirections )
         // console.log(d.filteredDirections)
         // dbInsertMany(d.filteredDirections)
@@ -467,8 +481,9 @@ async function emulateDirections() {
         }
         if(bestDirection) {
             log(' ')
-            printDirections(d.filteredDirections)
-            dbInsertMany(d.filteredDirections)
+            d.liveDirections =_.filter(d.filteredDirections, dir => dir.estimatedProfit>0)
+            printDirections(d.liveDirections)
+            dbInsertMany(d.liveDirections)
             log(' ')
             log('Best estimated profit'.yellow, bestEstimatedProfit.toFixed(2), '% for budget', bestBudget)
             bestDirection.bestEstimatedProfit = bestEstimatedProfit
@@ -491,10 +506,10 @@ async function scrape() {
 
     findMaxProfit()
     printDirections( d.filteredDirections )
-    dbInsertMany(d.filteredDirections)
+    // dbInsertMany(d.filteredDirections)
     console.timeEnd("getAndFind");
 
-    // await emulateDirections()
+    await emulateDirections()
 
 }
 
