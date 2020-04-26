@@ -381,7 +381,7 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     log('Transferring'.blue, baseAmount, 'fee', baseTransferFee, base, 'expected',baseExpected,base)
     //REAL:
     //WITHDRAW
-    //WAIT TRANFER COMPLETED (Check SELL EXCHANGE balance)
+    //WAIT TRASNFER COMPLETED (Check SELL EXCHANGE balance)
 
     //SELL ASSETS ON SELL EXCHANGE
     const sellMarketFee = sellMarket.taker
