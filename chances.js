@@ -183,22 +183,22 @@ async function getAllTickers() {
             // exchange.key    = keys[name].key
             // exchange.secret = keys[name].secret
             d.exchanges[name] = exchange
-            let allMarkets = await exchange.loadMarkets()
-            let markets = {}
-            _.each( allMarkets, (market, pair) => {
-                if (market.active) markets[pair] = market
-            })
+            let markets = await exchange.loadMarkets()
+            // let markets = {}
+            // _.each( allMarkets, (market, pair) => {
+            //     if (market.active) markets[pair] = market
+            // })
 
             d.exchanges[name].markets = markets
             // console.log('markets', markets)
 
             await delay(1000)
 
-            let allTickers = await exchange.fetchTickers() // Not all exchanges supports 'get all in once'
-            let tickers = {}
-            _.each( allTickers, (ticker, pair) => {
-                if(markets[pair].active) tickers[pair] = ticker
-            })
+            let tickers = await exchange.fetchTickers() // Not all exchanges supports 'get all in once'
+            // let tickers = {}
+            // _.each( allTickers, (ticker, pair) => {
+            //     if(markets[pair].active) tickers[pair] = ticker
+            // })
             // console.log('tickers', tickers)
 
             d.exchanges[name].tickers = tickers
@@ -333,7 +333,7 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
 
     //BUY BASE ASSETS ON MAIN EXCHANGE
     log('Buying', base, 'for', budget, quote, 'on', direction.exBuyName)
-    debug('buyMarket',buyMarket)
+    // log('buyMarket',buyMarket)
     //FIND BEST PRICE FOR BUDGET IN BUY EXCHANGE MARKET ORDERS
     //BUY (CONVERT)
     const buyMarketFee = buyMarket.taker
@@ -341,6 +341,7 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     //FIND BEST ASK PRICE FOR BUDGET
     const buyPrice = findOrderPriceLimit(exBuyOrderBook.asks, budget)
     assert(!(buyPrice==Infinity), 'buyPrice is Infinity (not enough bids for budget)')
+    console.log('buyMarket.precision.amount',buyMarket.precision)
     const baseAmount   = (budgetWOFee / buyPrice).toFixed(buyMarket.precision.amount)
     const buyCost      = baseAmount * buyPrice
     quoteBalance -= buyCost
