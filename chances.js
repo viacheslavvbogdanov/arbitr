@@ -183,24 +183,28 @@ async function getAllTickers() {
             // exchange.key    = keys[name].key
             // exchange.secret = keys[name].secret
             d.exchanges[name] = exchange
-            let allMarkets = await exchange.loadMarkets()
-            let markets = {} // active markets
-            _.each( allMarkets, (market, pair) => {
-                if (market.active) markets[pair] = market
-            })
-
+            let markets = await exchange.loadMarkets()
+            // let markets = {} // active markets
+            // _.each( allMarkets, (market, pair) => {
+            //     if (market.active) markets[pair] = market
+            // })
             d.exchanges[name].markets = markets
             // console.log('markets', markets)
-
             await delay(1000)
-            let allMarkets = await exchange.fetchCurrencies()
+
+            let currencies = await exchange.fetchCurrencies()
+            d.exchanges[name].currencies = currencies
+            await delay(1000)
 
             let allTickers = await exchange.fetchTickers() // Not all exchanges supports 'get all in once'
             let tickers = {} //
             _.each( allTickers, (ticker, pair) => {
-                if(allMarkets[pair].active) tickers[pair] = ticker
+                if( markets[pair].active &&
+                    currencies[markets[pair].base].active &&
+                    currencies[markets[pair].quote].active
+                ) tickers[pair] = ticker
             })
-            console.log('tickers', tickers)
+            //console.log('tickers', tickers)
 
             d.exchanges[name].tickers = tickers
             d.tr[name] = tickers
@@ -230,7 +234,7 @@ async function getAllTickers() {
     }))
 }
 
-function printDirections(directions){
+function printDirections(directions, sortByField='difBidAsk'){
     log(
         colR('difBidAsk'.green),
         colR('difLast'.green),
@@ -246,7 +250,7 @@ function printDirections(directions){
         colR('exBuy'.green), '  ', colL('exSell'.green),
         colL('stopMsg'.green)
     )
-    _.each( _.sortBy(directions,'difBidAsk'), (tick) => {
+    _.each( _.sortBy(directions,sortByField), (tick) => {
         // if (d.exchanges[tick.exBuyName].has.withdraw &&
         //     d.exchanges[tick.exSellName].has.deposit)
         if (tick) log(
@@ -481,15 +485,14 @@ async function emulateDirections() {
         }
         if(bestDirection) {
             log(' ')
-            printDirections(d.filteredDirections)
-            d.liveDirections =_.filter(d.filteredDirections, dir => dir.estimatedProfit>0)
-            printDirections(d.liveDirections)
-            dbInsertMany(d.liveDirections)
+            printDirections(d.filteredDirections, 'estimatedProfit')
+            dbInsertMany(d.filteredDirections)
             log(' ')
             log('Best estimated profit'.yellow, bestEstimatedProfit.toFixed(2), '% for budget', bestBudget)
             bestDirection.bestEstimatedProfit = bestEstimatedProfit
             bestDirection.bestBudget = bestBudget
             printDirections([bestDirection])
+            log()
         }else{
             log('No best direction found'.yellow)
         }
