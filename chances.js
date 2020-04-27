@@ -3,6 +3,11 @@
  * viacheslav.v.bogdanov@gmail.com
  */
 
+/* TODO
+- get API keys for exchanges with no public API:
+        digifinex flowbtc okex
+ */
+
 "use strict"
 const assert = require('assert')
 const ccxt   = require('ccxt')
@@ -12,7 +17,7 @@ require ('ansicolor').nice
 const delay = ms => new Promise(res => setTimeout(res, ms))
 const _tab="\t"
 //const keys = require ('./keys.js')
-const keys = []
+// const keys = []
 
 const DEBUG = false
 const debug = DEBUG ? log : function(){};
@@ -20,16 +25,16 @@ const debug = DEBUG ? log : function(){};
 const config = {
     minDifBidAsk: 10,  // in percents
     maxDifDif:    20,
-    mongoDBCollection: "chances4"
+    mongoDBCollection: "chances5"
 }
 
 let filteredCollection
 let d = {} // Main data variable
 
 d.exchangeNames = ccxt.exchanges
-let rmExchange = function( name ) {
-    d.exchangeNames.splice(d.exchangeNames.indexOf(name), 1)
-}
+// let rmExchange = function( name ) {
+//     d.exchangeNames.splice(d.exchangeNames.indexOf(name), 1)
+// }
 // // remove some exchanges
 // rmExchange('_1broker')   // require api key
 // d.exchangeNames = ['hitbtc','gateio','livecoin', 'crex24',
@@ -38,35 +43,37 @@ let rmExchange = function( name ) {
 
 
 const mongoClient = require("mongodb").MongoClient
+const Long = require("mongodb").Long
 const url = "mongodb://localhost:27017/stalker"
-var mongodb
+// { "insertTime": {"$toDate":"$_id" }}
+let mongodb
+let mongoCollection
 function dbInsertMany(arr) {
     const insertMany = function(arr){
-        filteredCollection.insertMany(arr, function(err, result){
+        const timeStamp = new Date(Date.now()).toISOString()
+        _.each(arr, item => {
+            item.timeStamp = timeStamp;
+        })
+        mongoCollection.insertMany(arr, function(err, result){
             if(err){
                 return log('[DB]'.red, result, err)
             } else {
-                log(('[DB] Saved docs '+result.result.n).lightGray,  )
+                log(('[DB] Saved docs count:'+result.result.n).lightGray,  )
             }
         })
     }
-    if (!filteredCollection && arr) {
+    if (!mongoCollection) {
         mongoClient.connect(url, function(err, database) {
             if (err) {
                 return log('[DB]'.red, err.message.lightGray)
             } else {
                 mongodb = database.db('stalker')
-                filteredCollection = mongodb.collection(config.mongoDBCollection)
+                mongoCollection = mongodb.collection(config.mongoDBCollection)
                 insertMany(arr)
             }
         })
     } else insertMany(arr)
-
 }
-
-
-// let tickersCollection
-// let directionsCollection
 
 function colR( val, width=12) {
     let text = val.toString()
@@ -199,9 +206,10 @@ async function getAllTickers() {
             let allTickers = await exchange.fetchTickers() // Not all exchanges supports 'get all in once'
             let tickers = {} //
             _.each( allTickers, (ticker, pair) => {
-                if( markets[pair].active &&
-                    currencies[markets[pair].base].active &&
-                    currencies[markets[pair].quote].active
+                const market = markets[pair]
+                if( market && market.active  &&
+                    currencies[market.base]  && currencies[market.base].active &&
+                    currencies[market.quote] && currencies[market.quote].active
                 ) tickers[pair] = ticker
             })
             //console.log('tickers', tickers)
@@ -225,6 +233,8 @@ async function getAllTickers() {
             if (e.message.indexOf('fetchTickers')===-1 ) {
                 if (e.message.indexOf(' GET ') === -1) {
                     log('[UNHANDLED]'.red, e.message)
+                    log(e)
+
                     debug(e)
                 } else
                     log( '[TIMEOUT]'.lightGray, name)
@@ -236,10 +246,10 @@ async function getAllTickers() {
 
 function printDirections(directions, sortByField='difBidAsk'){
     log(
+        colR(''),
         colR('difBidAsk'.green),
         colR('difLast'.green),
         colR('dif'.green,5),
-        colR(''),
         colR('pair'.green,12),
         colR('minQVol'.green), _tab,
         // d.exchanges[tick.exBuyName].has.deposit?'+':'-',
@@ -254,10 +264,10 @@ function printDirections(directions, sortByField='difBidAsk'){
         // if (d.exchanges[tick.exBuyName].has.withdraw &&
         //     d.exchanges[tick.exSellName].has.deposit)
         if (tick) log(
+            colR(tick.estimatedProfit ? tick.estimatedProfit.toFixed(2)+'%': ''),
             colR(tick.difBidAsk.toFixed(2)+'%'),
             colR(tick.difLast.toFixed(2)+'%'),
             colR(tick.difdif.toFixed(0)+'%',5),
-            colR(tick.estimatedProfit ? tick.estimatedProfit.toFixed(2)+'%': ''),
             colR(tick.pair.blue, 12),
             colR(tick.minQuoteVolume.toFixed(0)), _tab,
             // d.exchanges[tick.exBuyName].has.deposit?'+':'-',
@@ -452,24 +462,25 @@ async function emulateDirections() {
         let bestEstimatedProfit = 0
 
         for (let i=0; i<d.filteredDirections.length; i++) {
-            const direction = d.filteredDirections[i]
-            log(' ')
-            log('Estimate direction'.blue)
-            printDirections([direction])
-            // log( 'Best direction'.green, d.bestDirection)
-            const exBuy  = d.exchanges[direction.exBuyName]
-            const buyMarket  = exBuy.markets[direction.pair]
-            const quote = buyMarket.quote
-
-            let budget = 0.05
-            if (quote=='BTC')  budget = 0.02
-            if (quote=='ETH')  budget = 0.5
-            if (quote=='USDT') budget = 100
-
-            const exBuyOrderBook  = await d.exchanges[direction.exBuyName].fetchL2OrderBook(direction.pair)
-            const exSellOrderBook = await d.exchanges[direction.exSellName].fetchL2OrderBook(direction.pair)
-            await delay(1000) //TODO optimise (wait 1000-(currenttime-lastrequesttime for exchange))
             try {
+                const direction = d.filteredDirections[i]
+                log(' ')
+                log('Estimate direction'.blue)
+                printDirections([direction])
+                // log( 'Best direction'.green, d.bestDirection)
+                const exBuy  = d.exchanges[direction.exBuyName]
+                const buyMarket  = exBuy.markets[direction.pair]
+                const quote = buyMarket.quote
+
+                let budget = 0.05
+                if (quote=='BTC')  budget = 0.02
+                if (quote=='ETH')  budget = 0.5
+                if (quote=='USDT') budget = 100
+
+                const exBuyOrderBook  = await d.exchanges[direction.exBuyName].fetchL2OrderBook(direction.pair)
+                const exSellOrderBook = await d.exchanges[direction.exSellName].fetchL2OrderBook(direction.pair)
+                await delay(1000) //TODO optimise (wait 1000-(currenttime-lastrequesttime for exchange))
+
                 const estimatedProfitRate = await estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBook, budget)
                 const estimatedProfit = (estimatedProfitRate * 100 - 100)
                 direction.estimatedProfit = estimatedProfit
