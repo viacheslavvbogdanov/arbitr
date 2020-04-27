@@ -341,8 +341,8 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     //FIND BEST ASK PRICE FOR BUDGET
     const buyPrice = findOrderPriceLimit(exBuyOrderBook.asks, budget)
     assert(!(buyPrice==Infinity), 'buyPrice is Infinity (not enough bids for budget)')
-    console.log('buyMarket.precision.amount',buyMarket.precision)
-    const baseAmount   = (budgetWOFee / buyPrice).toFixed(buyMarket.precision.amount)
+    const baseAmount   = exBuy.decimalToPrecision(
+        (budgetWOFee / buyPrice), exBuy.TRUNCATE, buyMarket.precision.amount )
     const buyCost      = baseAmount * buyPrice
     quoteBalance -= buyCost
     //DECREASE FEES
