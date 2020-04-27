@@ -128,7 +128,7 @@ function findDirections(ticks){
             const l = _.last( tickBid )
             const difLast = l.last/f.last*100-100
             const difBidAsk = l.bid/f.ask*100-100
-            const difdif = Math.abs(difLast-difBidAsk)
+            const difDif = Math.abs(difLast-difBidAsk)
             // console.log( pair, f.exchange, l.exchange, difBidAsk.toFixed(2) )
             const dir = {}
             dir.pair = pair
@@ -143,7 +143,7 @@ function findDirections(ticks){
                 l.quoteVolume)
             dir.difLast = difLast
             dir.difBidAsk = difBidAsk
-            dir.difdif = difdif
+            dir.difdif = difDif
             dir.minQuoteVolume = minQuoteVolume
             dirs.push(dir);
         }
@@ -183,23 +183,24 @@ async function getAllTickers() {
             // exchange.key    = keys[name].key
             // exchange.secret = keys[name].secret
             d.exchanges[name] = exchange
-            let markets = await exchange.loadMarkets()
-            // let markets = {}
-            // _.each( allMarkets, (market, pair) => {
-            //     if (market.active) markets[pair] = market
-            // })
+            let allMarkets = await exchange.loadMarkets()
+            let markets = {} // active markets
+            _.each( allMarkets, (market, pair) => {
+                if (market.active) markets[pair] = market
+            })
 
             d.exchanges[name].markets = markets
             // console.log('markets', markets)
 
             await delay(1000)
+            let allMarkets = await exchange.fetchCurrencies()
 
-            let tickers = await exchange.fetchTickers() // Not all exchanges supports 'get all in once'
-            // let tickers = {}
-            // _.each( allTickers, (ticker, pair) => {
-            //     if(markets[pair].active) tickers[pair] = ticker
-            // })
-            // console.log('tickers', tickers)
+            let allTickers = await exchange.fetchTickers() // Not all exchanges supports 'get all in once'
+            let tickers = {} //
+            _.each( allTickers, (ticker, pair) => {
+                if(allMarkets[pair].active) tickers[pair] = ticker
+            })
+            console.log('tickers', tickers)
 
             d.exchanges[name].tickers = tickers
             d.tr[name] = tickers
@@ -523,6 +524,20 @@ async function process() {
 // db.close();
 
 process()
+
+/*
+otes On Precision And Limits
+The user is required to stay within all limits and precision! The values of the order should satisfy the following conditions:
+
+Order amount >= limits['min']['amount']
+Order amount <= limits['max']['amount']
+Order price >= limits['min']['price']
+Order price <= limits['max']['price']
+Order cost (amount * price) >= limits['min']['cost']
+Order cost (amount * price) <= limits['max']['cost']
+Precision of amount must be <= precision['amount']
+Precision of price must be <= precision['price']
+ */
 
 
 
