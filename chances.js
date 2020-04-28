@@ -4,6 +4,10 @@
  */
 
 /* TODO
+- emulate twins strategy
+- calc balance
+- save balance to db
+
 - get API keys for exchanges with no public API:
         digifinex flowbtc okex
  */
@@ -12,7 +16,7 @@
 const assert = require('assert')
 const ccxt   = require('ccxt')
 const _      = require('underscore')
-const log    = require ('ololog').configure ({ locate: false })
+const log    = require ('ololog').configure ({ locate: true })
 require ('ansicolor').nice
 const delay = ms => new Promise(res => setTimeout(res, ms))
 const _tab="\t"
@@ -28,7 +32,6 @@ const config = {
     mongoDBCollection: "chances5"
 }
 
-let filteredCollection
 let d = {} // Main data variable
 
 d.exchangeNames = ccxt.exchanges
@@ -37,13 +40,11 @@ d.exchangeNames = ccxt.exchanges
 // }
 // // remove some exchanges
 // rmExchange('_1broker')   // require api key
-// d.exchangeNames = ['hitbtc','gateio','livecoin', 'crex24',
+// d.exchangeNames = ['hitbtc','gateio','livecoin', 'crex24', 'stex', 'kraken',
 //     'whitebit','hitbtc2','bitz','exmo']//,'livecoin']
-// d.exchangeNames = ['binance','bittrex','poloniex']
 
 
 const mongoClient = require("mongodb").MongoClient
-const Long = require("mongodb").Long
 const url = "mongodb://localhost:27017/stalker"
 // { "insertTime": {"$toDate":"$_id" }}
 let mongodb
@@ -191,10 +192,6 @@ async function getAllTickers() {
             // exchange.secret = keys[name].secret
             d.exchanges[name] = exchange
             let markets = await exchange.loadMarkets()
-            // let markets = {} // active markets
-            // _.each( allMarkets, (market, pair) => {
-            //     if (market.active) markets[pair] = market
-            // })
             d.exchanges[name].markets = markets
             // console.log('markets', markets)
             await delay(1000)
@@ -233,9 +230,8 @@ async function getAllTickers() {
             if (e.message.indexOf('fetchTickers')===-1 ) {
                 if (e.message.indexOf(' GET ') === -1) {
                     log('[UNHANDLED]'.red, e.message)
-                    log(e)
-
-                    debug(e)
+                    //log(e)
+                    //debug(e)
                 } else
                     log( '[TIMEOUT]'.lightGray, name)
             }
@@ -290,10 +286,8 @@ function findMaxProfit() {
     d.directions = directions // save to global object
 
     // const filteredDirections = filterDirections(directions, null, 5, 5, 5)
-    const filteredDirections = filterDirections(
+    d.filteredDirections = filterDirections(
         directions, null, 0, config.minDifBidAsk, config.maxDifDif)
-
-    d.filteredDirections = filteredDirections
 
     // d.bestDirection = _.last(filterDirections(directions, 'ETH', 5, 5, 20))
     // d.bestDirection = _.last(filterDirections(directions, null, 5, 5, 5))
@@ -321,13 +315,13 @@ function findOrderPriceLimit( lots, amount, accumulateLots=true ) {
     return price
 }
 
-function print_calcOrderPriceLimit( orderBook ) {
-    for (let a=1; a>=0.00001; a/=10) {
-        const sellPrice = findOrderPriceLimit( orderBook.bids, a)
-        const buyPrice  = findOrderPriceLimit( orderBook.asks, a)
-        log('Amount: ', a,_tab, buyPrice, _tab, sellPrice)
-    }
-}
+// function print_calcOrderPriceLimit( orderBook ) {
+//     for (let a=1; a>=0.00001; a/=10) {
+//         const sellPrice = findOrderPriceLimit( orderBook.bids, a)
+//         const buyPrice  = findOrderPriceLimit( orderBook.asks, a)
+//         log('Amount: ', a,_tab, buyPrice, _tab, sellPrice)
+//     }
+// }
 
 async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBook, budget) {
     log( 'estimateDirectionProfit'.lightGray, 'budget:', budget, colR(direction.pair.blue),
@@ -340,8 +334,8 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     const exSell = d.exchanges[direction.exSellName]
     const buyMarket  = exBuy.markets[direction.pair]
     const sellMarket = exSell.markets[direction.pair]
-    const buyTicker  = exBuy.tickers[direction.pair]
-    const sellTicker = exSell.tickers[direction.pair]
+    // const buyTicker  = exBuy.tickers[direction.pair]
+    // const sellTicker = exSell.tickers[direction.pair]
     const base  = buyMarket.base
     const quote = buyMarket.quote
 
@@ -355,10 +349,10 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     const budgetWOFee  = budget - (budget*buyMarketFee)
     //FIND BEST ASK PRICE FOR BUDGET
     const buyPrice = findOrderPriceLimit(exBuyOrderBook.asks, budget)
-    assert(!(buyPrice==Infinity), 'buyPrice is Infinity (not enough bids for budget)')
+    assert(!(buyPrice===Infinity), 'buyPrice is Infinity (not enough bids for budget)')
     const baseAmount   = exBuy.decimalToPrecision(
         (budgetWOFee / buyPrice), exBuy.TRUNCATE, buyMarket.precision.amount )
-    const buyCost      = baseAmount * buyPrice
+    const buyCost = baseAmount * buyPrice
     quoteBalance -= buyCost
     //DECREASE FEES
     const buyFee = buyCost * buyMarketFee
@@ -397,15 +391,15 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     log('Transferring'.blue, baseAmount, 'fee', baseTransferFee, base, 'expected',baseExpected,base)
     //REAL:
     //WITHDRAW
-    //WAIT TRASNFER COMPLETED (Check SELL EXCHANGE balance)
+    //WAIT TRANSFER COMPLETED (Check SELL EXCHANGE balance)
 
     //SELL ASSETS ON SELL EXCHANGE
     const sellMarketFee = sellMarket.taker
     // const sellPrice     = sellTicker.bid  //TODO Find in market orders
     //Find best bid price for budget
     const sellPrice = findOrderPriceLimit(exSellOrderBook.asks, budget)
-    assert(!(sellPrice==Infinity), 'sellPrice is Infinity (not enough asks for budget)')
-    const receivedAmount   = baseExpected //TODO set to
+    assert(!(sellPrice===Infinity), 'sellPrice is Infinity (not enough asks for budget)')
+    const receivedAmount = baseExpected //TODO set to
     const sellCost      = receivedAmount * sellPrice
     let quoteBalance2 = sellCost
     //DECREASE FEES
@@ -462,9 +456,9 @@ async function emulateDirections() {
         let bestEstimatedProfit = 0
 
         for (let i=0; i<d.filteredDirections.length; i++) {
+            const direction = d.filteredDirections[i]
             try {
-                const direction = d.filteredDirections[i]
-                log(' ')
+                log( "\n\n")
                 log('Estimate direction'.blue)
                 printDirections([direction])
                 // log( 'Best direction'.green, d.bestDirection)
@@ -473,9 +467,9 @@ async function emulateDirections() {
                 const quote = buyMarket.quote
 
                 let budget = 0.05
-                if (quote=='BTC')  budget = 0.02
-                if (quote=='ETH')  budget = 0.5
-                if (quote=='USDT') budget = 100
+                if (quote==='BTC')  budget = 0.02
+                if (quote==='ETH')  budget = 0.5
+                if (quote==='USDT') budget = 100
 
                 const exBuyOrderBook  = await d.exchanges[direction.exBuyName].fetchL2OrderBook(direction.pair)
                 const exSellOrderBook = await d.exchanges[direction.exSellName].fetchL2OrderBook(direction.pair)
@@ -513,7 +507,6 @@ async function emulateDirections() {
 }
 
 async function scrape() {
-// Store last calculated directions (if any)
     log('Scrape started')
     console.time("getAndFind");
     await getAllTickers()
@@ -525,18 +518,15 @@ async function scrape() {
     console.timeEnd("getAndFind");
 
     await emulateDirections()
-
 }
 
 async function process() {
     do {
-
         await scrape()
         await delay(60000)
     } while (true)
 }
 // db.close();
-
 process()
 
 /*
