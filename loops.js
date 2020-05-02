@@ -64,8 +64,8 @@ rmExchange('coinegg')    // [ExchangeNotAvailable]
 // No trade sources
 // rmExchange('coinmarketcap')
 
-d.exchangeNames = ['binance','bittrex','bytetrade','ftx',
-'idex','kraken', 'poloniex', 'upbit']
+// d.exchangeNames = ['hitbtc','gateio','livecoin', 'crex24', 'stex', 'kraken',
+//     'whitebit','hitbtc2','bitz','exmo']//,'livecoin']
 
 function propsCount( o ) {
     let count = 0
@@ -96,7 +96,9 @@ function getAllTickers() {
                 const timeLoopsCalc = 'Loops calculation '+name+_tab
                 console.time(timeLoopsCalc)
                 e.graph = ants.createGraph(e.markets)
-                e.loops = ants.findLoops(e.graph, 3) // TODO try 4
+                e.loops = ants.findLoops(e.graph,
+                    3) // TODO try 4
+                    // (name==='hitbtc')||(name==='crex24')||(name==='gateio')?3:4) // TODO try 4
                 console.timeEnd(timeLoopsCalc)
             }
             const markets = e.markets
@@ -106,8 +108,8 @@ function getAllTickers() {
             const unsortedChains =
                 // ants.filterChains(allChains, 0.001, 5, null)
                 ants.filterChains(allChains, 0.0001, 1, 'BTC')
-            // const chains = _.sortBy(unsortedChains, 'profit' )
-            const chains = _.sortBy(allChains, 'profit' )
+            const chains = _.sortBy(unsortedChains, 'profit' )
+            // const chains = _.sortBy(allChains, 'profit' )
 
             if (chains.length>0) {
                 log(' ')
@@ -132,9 +134,10 @@ function getAllTickers() {
         } catch (e) {
             // log( e )
             if (e.message.indexOf('fetchTickers')===-1 ) {
-                if (e.message.indexOf(' GET ') === -1)
-                    log('[UNHANDLED]'.red, e.message, e)
-                else
+                if (e.message.indexOf(' GET ') === -1) {
+                    log('[UNHANDLED]'.red, e.message)
+                    // log(e)
+                } else
                     log( '[TIMEOUT]'.lightGray, name)
             }
         }
@@ -166,7 +169,7 @@ mongoClient.connect(url, function(err, database){
     chainsCollection      = db.collection("deals")
 
     work()
-    setInterval( work, 30*sec)
+    setInterval( work, 60*sec)
 
 })
 
