@@ -520,14 +520,15 @@ async function scrape() {
     await emulateDirections()
 }
 
-async function process() {
+let working = true;
+
+(async () => {
     do {
         await scrape()
         await delay(60000)
-    } while (true)
-}
+    } while (working)
+})()
 // db.close();
-process()
 
 /*
 otes On Precision And Limits
