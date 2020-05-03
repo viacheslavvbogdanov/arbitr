@@ -28,8 +28,8 @@ const debug = DEBUG ? log : function(){};
 
 const config = {
     minDifBidAsk: 10,  // in percents
-    maxDifDif:    20,
-    mongoDBCollection: "chances5"
+    maxDifDif:    100,
+    mongoDBCollection: "chances7"
 }
 
 let d = {} // Main data variable
@@ -129,50 +129,54 @@ function findDirections(ticks){
         const exs = Object.keys(tick)
         if (exs.length>1) {
             // log( pair, exs )
-            const tickAsk = _.sortBy( tick, 'ask' )
-            const tickBid = _.sortBy( tick, 'bid' )
+            // const tickAsk = _.sortBy( tick, 'ask' )
+            // const tickBid = _.sortBy( tick, 'bid' )
             // console.log( tick )
-            const f = _.first( tickAsk )
-            const l = _.last( tickBid )
-            const difLast = l.last/f.last*100-100
-            const difBidAsk = l.bid/f.ask*100-100
-            const difDif = Math.abs(difLast-difBidAsk)
-            // console.log( pair, f.exchange, l.exchange, difBidAsk.toFixed(2) )
-            const dir = {}
-            dir.pair = pair
-            dir.exBuy = f
-            dir.exSell = l
-            dir.exBuyName = f.exchange
-            dir.exSellName = l.exchange
-            dir.direction = f.exchange+' -> '+l.exchange
-            dir.chance = dir.direction+' ('+dir.pair+')'
-            const minQuoteVolume = Math.min(
-                f.quoteVolume,
-                l.quoteVolume)
-            dir.difLast = difLast
-            dir.difBidAsk = difBidAsk
-            dir.difdif = difDif
-            dir.minQuoteVolume = minQuoteVolume
-            dirs.push(dir);
+            _.each(tick, (f) => {
+                _.each(tick, (l) => {
+                    const difBidAsk = l.bid/f.ask*100-100
+                    if (difBidAsk>1) { // if difference more than 1%
+                        const difLast = l.last / f.last * 100 - 100
+                        const difDif = Math.abs(difLast - difBidAsk)
+                        // console.log( pair, f.exchange, l.exchange, difBidAsk.toFixed(2) )
+                        const dir = {}
+                        dir.pair = pair
+                        dir.exBuy = f
+                        dir.exSell = l
+                        dir.exBuyName = f.exchange
+                        dir.exSellName = l.exchange
+                        dir.direction = f.exchange + ' -> ' + l.exchange
+                        dir.chance = dir.direction + ' (' + dir.pair + ')'
+                        dir.minQuoteVolume = Math.min(
+                            f.quoteVolume,
+                            l.quoteVolume)
+                        dir.difLast = difLast
+                        dir.difBidAsk = difBidAsk
+                        dir.difdif = difDif
+                        dirs.push(dir);
+                    }
+                })
+            })
         }
     })
     return _.sortBy(dirs, 'difBidAsk' )
 }
 
-function filterDirections(directions, quote=null, minQuoteVolume=1, minDifBidAsk=2, maxDifDif=10000){
+function filterDirections(directions, quote=null, minQuoteVolume=1, minDif=2, maxDifDif=10000){
     const filteredDirections = []
     _.each( directions, (dir) => {
         // log( name, 'Tick', tick )
 
         if (dir.minQuoteVolume>=minQuoteVolume
-    && dir.difBidAsk>=minDifBidAsk //&& tick.exBuy.ask>0
-    && dir.exBuyName!==dir.exSellName
-    && dir.difdif<=maxDifDif
-    && (!quote || dir.pair.indexOf('/'+quote) !== -1)
-) {
-        filteredDirections.push(dir)
-    }
-})
+            && dir.difBidAsk>=minDif //&& tick.exBuy.ask>0
+            && dir.exBuyName!==dir.exSellName
+            && dir.difdif<=maxDifDif
+            && (!dir.estimatedProfit || dir.estimatedProfit>=minDif)
+            && (!quote || dir.pair.indexOf('/'+quote) !== -1)
+        ) {
+                filteredDirections.push(dir)
+            }
+        })
     return filteredDirections
 }
 
@@ -305,7 +309,7 @@ function findOrderPriceLimit( lots, amount, accumulateLots=true ) {
         let lotAmount = lots[i][1]
         if (lotAmount<amount) {
             if (accumulateLots) amount -= lotAmount
-            price = lotPrice //? if accumulate lots calc precise price
+            price = lotPrice //TODO if accumulate lots calc precise price
         } else {
             amount = 0
             price = lotPrice
