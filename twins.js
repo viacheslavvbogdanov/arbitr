@@ -63,14 +63,21 @@ async function eUpdate(e) {
 async function eCheck(e) {
     debug(`eCheck ${e.name}` )
     // TODO check it all
-    // exchange active
-    // top-up active
-    // withdrawal active
-    // market active
+    // check market
+    assert(e.markets,                   `Markets is not loaded (${e.name})`)
+    assert(e.markets[c.pair],           `Market is not found ${c.pair} (${e.name})`)
+    assert(e.markets[c.pair].active,    `Market is not active ${c.pair} (${e.name})`)
     // base currency active
+    assert(e.currencies,                `Currencies is not loaded (${e.name})`)
+    assert(e.currencies[c.base],        `Currency is not found ${c.base} (${e.name})`)
+    assert(e.currencies[c.base].active, `Currency is not active ${c.base} (${e.name})`)
     // quote currency active
+    assert(e.currencies[c.quote],        `Currency is not found ${c.quote} (${e.name})`)
+    assert(e.currencies[c.quote].active, `Currency is not active ${c.quote} (${e.name})`)
     // top-up of currency active
     // withdrawal of currency active
+    // top-up active
+    // withdrawal active
 }
 
 async function check() {
