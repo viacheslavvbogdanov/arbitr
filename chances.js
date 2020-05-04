@@ -302,18 +302,40 @@ function findMaxProfit() {
     // printDirections(filteredDirections)
 }
 
-function findOrderPriceLimit( lots, amount, accumulateLots=true ) {
+// function findOrderPriceLimit( lots, amount, accumulateLots=true ) {
+//     let price = Infinity
+//     for (let i=0; amount>0 && i<lots.length; i++) {
+//         let lotPrice = lots[i][0]
+//         let lotAmount = lots[i][1]
+//         if (lotAmount<amount) {
+//             if (accumulateLots) amount -= lotAmount
+//             price = lotPrice //TODO if accumulate lots calc precise price
+//         } else {
+//             amount = 0
+//             price = lotPrice
+//         }
+//     }
+//     if (amount>0) price = Infinity
+//     return price
+// }
+
+function findOrderPriceLimit( lots, amount ) {
     let price = Infinity
+    let spend = 0
+    let purchased = 0
     for (let i=0; amount>0 && i<lots.length; i++) {
         let lotPrice = lots[i][0]
         let lotAmount = lots[i][1]
         if (lotAmount<amount) {
-            if (accumulateLots) amount -= lotAmount
-            price = lotPrice //TODO if accumulate lots calc precise price
+            amount -= lotAmount
+            purchased += lotAmount
+            spend += lotPrice * lotAmount
         } else {
+            purchased += amount
+            spend += lotPrice * amount
             amount = 0
-            price = lotPrice
         }
+        price = spend / purchased
     }
     if (amount>0) price = Infinity
     return price
