@@ -6,8 +6,10 @@
 "use strict"
 const assert = require('assert')
 const ccxt   = require('ccxt')
-const _      = require('underscore')
+// const _      = require('underscore')
 const log    = require ('ololog').configure ({ locate: true })
+const LocalStorage = require('node-localstorage').LocalStorage
+const localStorage = new LocalStorage('./storage')
 require ('ansicolor').nice
 const delay = ms => new Promise(res => setTimeout(res, ms))
 
@@ -74,8 +76,8 @@ async function eCheck(e) {
     // quote currency active
     assert(e.currencies[c.quote],        `Currency is not found ${c.quote} (${e.name})`)
     assert(e.currencies[c.quote].active, `Currency is not active ${c.quote} (${e.name})`)
-    // top-up of currency active
-    // withdrawal of currency active
+    // TODO top-up of currency active
+    // TODD withdrawal of currency active
     // top-up active
     // withdrawal active
 }
@@ -89,10 +91,10 @@ async function watch() {
     try {
         // check exchanges and currencies
         await check()
-        const estimation = await estimate()
-        if (estimation.profit>=c.minProfit) {
-            log('[GOOD DEAL!] Estimated profit:'.green, estimation.profit)
-            await make(estimation)
+        await estimate()
+        if (d.estimatedProfit>=c.minProfit) {
+            log('[GOOD DEAL!] Estimated profit:'.green, d.estimatedProfit)
+            await make()
         }
 
     } catch(e) {
@@ -100,30 +102,30 @@ async function watch() {
         debug(e)
     }
 }
+
+let d = {} // main deal object
+
 async function estimate() {
     await Promise.all([fetchOrderBook(e1), fetchOrderBook(e2)])
 
     let buySellProfit = estimateProfit(e1,e2)
     let sellBuyProfit = estimateProfit(e2,e1)
 
-    let estimation = buySellProfit>sellBuyProfit ?
-        {profit:buySellProfit, forward:true} :
-        {profit:sellBuyProfit, forward:false}
-    debug('estimation',estimation)
+    d.forward = buySellProfit>sellBuyProfit
+    d.estimatedProfit =  d.forward ? buySellProfit : sellBuyProfit
+    debug('deal estimation', d)
 
-    await Promise.all([eDelay(e1), eDelay(e2)]) //TODO Optimize - move after deal
-    return estimation
+    await Promise.all([eDelay(e1), eDelay(e2)]) //TODO Optimize - move after trade
 }
 
 function estimateProfit(eBuy, eSell) {
     const buyPrice = findOrderPriceLimit(eBuy._ob.asks, c.budget)
-    assert(!(buyPrice===Infinity), 'buyPrice is Infinity (not enough bids for budget)')
+    assert(!(buyPrice===Infinity), 'buyPrice is Infinity (not enough asks for budget)')
 
     const sellPrice = findOrderPriceLimit(eSell._ob.bids, c.budget)
     assert(!(sellPrice===Infinity), 'sellPrice is Infinity (not enough bids for budget)')
 
     return sellPrice / buyPrice * 100 - 100
-
 }
 
 function findOrderPriceLimit( lots, amount ) {
@@ -152,43 +154,68 @@ async function fetchOrderBook(e) {
     e._ob = await e.fetchL2OrderBook(c.pair)
 }
 
-async function make(estimation) {
-    debug(`make`, estimation )
-
+async function make() {
+    debug(`make` )
     // (TRADE -> WAIT -> TRANSFER -> WAIT)
-    const traded = await trade(estimation)
-    const received = await transfer(traded)
-    review(received)
+    await trade()
+    await transfer()
+ }
+
+async function trade() {
+    debug(`trade` )
+    await delay(2000)
 }
 
-async function trade(estimation) {
-    let traded = {}
-    return traded
+async function transfer() {
+    debug(`transfer` )
+    await delay(1000)
+
+    setStatus(_waitingForTransfer)
 }
 
-async function transfer(traded) {
-    let received = {}
-    return received
+async function waitForTransfer() {
+    debug(`waitForTransfer delay 10 sec` )
+
+    await delay(10000)
+    review()
+    d = {} // clear main deal object
+    setStatus(_watching)
 }
 
 // review completed deal and save to db
 function review(estimation, traded, received) {
-    debug('review')
-    debug('estimation', estimation)
-    debug('traded', traded)
-    debug('received', received)
+    debug('review deal', d)
 
 }
 
+const _watching = 'watching'
+const _waitingForTransfer = 'waitingForTransfer'
+const _stopping = 'stopping'
+const _status = 'status'
 
-let working = true;
+function setStatus(status) {
+    localStorage.setItem(_status, status)
+}
+
+function getStatus() {
+    const s =  localStorage.getItem(_status)
+    return s ? s : _watching
+}
 
 (async () => {
     await init()
     let updateInterval = 0
     do {
-        await watch()
-        if (++updateInterval % 24 ) await update()
-    } while (working)
+        const status = getStatus()
+        debug('status',status)
+        switch (status)
+        {
+            case _watching:           await watch(); break
+            case _waitingForTransfer: await waitForTransfer(); break
+            default: log('[UNKNOWN STATUS]'.red); setStatus(_watching)
+        }
+
+        if (!(++updateInterval % 24)) await update()
+    } while (getStatus()!==_stopping)
 
 })()
