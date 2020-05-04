@@ -14,7 +14,7 @@ const delay = ms => new Promise(res => setTimeout(res, ms))
 const DEBUG = true
 const debug = DEBUG ? log : function(){};
 
-const defaultConfig = {
+let c = {
     e1name: 'hitbtc',
     e2name: 'livecoin',
     base:   'XAUR',
@@ -24,11 +24,11 @@ const defaultConfig = {
 }
 
 // const PROXY = ''
-let c = null // configuration
 let e1, e2 //exchanges objects
 
-async function init(config=defaultConfig) {
-    c = config
+async function init(config) {
+    if (config) c = {c,config} // apply
+    debug('[INIT] Config:', c)
     c.pair = c.base+'/'+c.quote
     e1 = new ccxt[c.e1name] ()
     e2 = new ccxt[c.e2name] ()
@@ -45,7 +45,7 @@ async function update() {
 }
 
 async function eDelay(e) {
-    debug(`delay ${e.rateLimit}ms` )
+    debug(`delay ${e.rateLimit}ms`.darkGray )
     await delay(e.rateLimit)
 }
 
@@ -55,14 +55,14 @@ async function eUpdate(e) {
     await eDelay(e)
     await e.fetchCurrencies()
     await eDelay(e)
-    await e.fetchBalance()
-    await eDelay(e)
+    // await e.fetchBalance()
+    // await eDelay(e)
 
 }
 
 async function eCheck(e) {
     debug(`eCheck ${e.name}` )
-    // TODO check
+    // TODO check it all
     // exchange active
     // top-up active
     // withdrawal active
@@ -83,7 +83,8 @@ async function watch() {
         // check exchanges and currencies
         await check()
         const estimation = await estimate()
-        if (estimation.profit>=config.minProfit) {
+        if (estimation.profit>=c.minProfit) {
+            log('[GOOD DEAL!] Estimated profit:'.green, estimation.profit)
             await make(estimation)
         }
 
@@ -94,12 +95,27 @@ async function watch() {
 }
 async function estimate() {
     await Promise.all([fetchOrderBook(e1), fetchOrderBook(e2)])
+
     let buySellProfit = estimateProfit(e1,e2)
     let sellBuyProfit = estimateProfit(e2,e1)
 
+    let estimation = buySellProfit>sellBuyProfit ?
+        {profit:buySellProfit, forward:true} :
+        {profit:sellBuyProfit, forward:false}
+    debug('estimation',estimation)
+
+    await Promise.all([eDelay(e1), eDelay(e2)]) //TODO Optimize - move after deal
+    return estimation
 }
 
 function estimateProfit(eBuy, eSell) {
+    const buyPrice = findOrderPriceLimit(eBuy._ob.asks, c.budget)
+    assert(!(buyPrice===Infinity), 'buyPrice is Infinity (not enough bids for budget)')
+
+    const sellPrice = findOrderPriceLimit(eSell._ob.bids, c.budget)
+    assert(!(sellPrice===Infinity), 'sellPrice is Infinity (not enough bids for budget)')
+
+    return sellPrice / buyPrice * 100 - 100
 
 }
 
@@ -161,12 +177,11 @@ function review(estimation, traded, received) {
 let working = true;
 
 (async () => {
-    await init(config)
+    await init()
     let updateInterval = 0
-
     do {
-        if (++updateInterval % 24 ) await update()
         await watch()
+        if (++updateInterval % 24 ) await update()
     } while (working)
 
 })()

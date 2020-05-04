@@ -29,7 +29,7 @@ const debug = DEBUG ? log : function(){};
 const config = {
     minDifBidAsk: 10,  // in percents
     maxDifDif:    100,
-    mongoDBCollection: "chances7"
+    mongoDBCollection: "chances8"
 }
 
 let d = {} // Main data variable
@@ -423,7 +423,7 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     const sellMarketFee = sellMarket.taker
     // const sellPrice     = sellTicker.bid  //TODO Find in market orders
     //Find best bid price for budget
-    const sellPrice = findOrderPriceLimit(exSellOrderBook.asks, budget)
+    const sellPrice = findOrderPriceLimit(exSellOrderBook.bids, budget)
     assert(!(sellPrice===Infinity), 'sellPrice is Infinity (not enough asks for budget)')
     const receivedAmount = baseExpected //TODO set to
     const sellCost      = receivedAmount * sellPrice
@@ -491,11 +491,15 @@ async function emulateDirections() {
                 const exBuy  = d.exchanges[direction.exBuyName]
                 const buyMarket  = exBuy.markets[direction.pair]
                 const quote = buyMarket.quote
-
-                let budget = 0.05
-                if (quote==='BTC')  budget = 0.02
-                if (quote==='ETH')  budget = 0.5
-                if (quote==='USDT') budget = 100
+                const budgetUSD = 100
+                let budget = 0
+                if (quote==='BTC')  budget = 0.00012 * budgetUSD
+                if (quote==='ETH')  budget = 0.005 * budgetUSD
+                if (quote==='USDT') budget = budgetUSD
+                if (!budget) {
+                    log('[BUDGET] is not assigned for quote'.red, quote, 'Assigning', budgetUSD)
+                    budget = budgetUSD;
+                }
 
                 const exBuyOrderBook  = await d.exchanges[direction.exBuyName].fetchL2OrderBook(direction.pair)
                 const exSellOrderBook = await d.exchanges[direction.exSellName].fetchL2OrderBook(direction.pair)
@@ -517,6 +521,11 @@ async function emulateDirections() {
         if(bestDirection) {
             log(' ')
             printDirections(d.filteredDirections, 'estimatedProfit')
+            d.filteredDirections = filterDirections(
+                d.filteredDirections, null, 0, config.minDifBidAsk, config.maxDifDif)
+            log('profit > 10 '.green)
+            printDirections(d.filteredDirections, 'estimatedProfit')
+
             dbInsertMany(d.filteredDirections)
             log(' ')
             log('Best estimated profit'.yellow, bestEstimatedProfit.toFixed(2), '% for budget', bestBudget)
