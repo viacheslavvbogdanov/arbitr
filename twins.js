@@ -8,9 +8,10 @@ const assert = require('assert')
 const ccxt   = require('ccxt')
 // const _      = require('underscore')
 const log    = require ('ololog').configure ({ locate: true })
+require ('ansicolor').nice
 const LocalStorage = require('node-localstorage').LocalStorage
 const localStorage = new LocalStorage('./storage')
-require ('ansicolor').nice
+
 const delay = ms => new Promise(res => setTimeout(res, ms))
 
 const DEBUG = true
@@ -183,7 +184,7 @@ async function waitForTransfer() {
 }
 
 // review completed deal and save to db
-function review(estimation, traded, received) {
+function review() {
     debug('review deal', d)
 
 }
