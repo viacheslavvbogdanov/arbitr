@@ -27,8 +27,9 @@ const DEBUG = false
 const debug = DEBUG ? log : function(){};
 
 const config = {
-    minDifBidAsk: 10,  // in percents
-    maxDifDif:    100,
+    minDifBidAsk:   10,  // in percents
+    minProfit:      10,
+    maxDifDif:      100,
     mongoDBCollection: "chances8"
 }
 
@@ -76,13 +77,13 @@ function dbInsertMany(arr) {
     } else insertMany(arr)
 }
 
-function colR( val, width=12) {
+function colR( val, width=11) {
     let text = val.toString()
     let spaces = width-text.length
     while (spaces<=0) spaces+=width
     return Array(spaces).join(' ') + text
 }
-function colL( val, width=12) {
+function colL( val, width=11) {
     let text = val ? val.toString() : 'undefined'
     let spaces = width-text.length
     while (spaces<=0) spaces+=width
@@ -162,7 +163,7 @@ function findDirections(ticks){
     return _.sortBy(dirs, 'difBidAsk' )
 }
 
-function filterDirections(directions, quote=null, minQuoteVolume=1, minDif=2, maxDifDif=10000){
+function filterDirections(directions, quote=null, minQuoteVolume=1, minDif=2, minProfit=null, maxDifDif=10000){
     const filteredDirections = []
     _.each( directions, (dir) => {
         // log( name, 'Tick', tick )
@@ -171,7 +172,7 @@ function filterDirections(directions, quote=null, minQuoteVolume=1, minDif=2, ma
             && dir.difBidAsk>=minDif //&& tick.exBuy.ask>0
             && dir.exBuyName!==dir.exSellName
             && dir.difdif<=maxDifDif
-            && (!dir.estimatedProfit || dir.estimatedProfit>=minDif)
+            && (!minProfit || (minProfit && dir.estimatedProfit>=minProfit))
             && (!quote || dir.pair.indexOf('/'+quote) !== -1)
         ) {
                 filteredDirections.push(dir)
@@ -289,12 +290,8 @@ function findMaxProfit() {
     const directions = findDirections(ticks)
     d.directions = directions // save to global object
 
-    // const filteredDirections = filterDirections(directions, null, 5, 5, 5)
     d.filteredDirections = filterDirections(
-        directions, null, 0, config.minDifBidAsk, config.maxDifDif)
-
-    // d.bestDirection = _.last(filterDirections(directions, 'ETH', 5, 5, 20))
-    // d.bestDirection = _.last(filterDirections(directions, null, 5, 5, 5))
+        directions, null, 0, config.minDifBidAsk, null,config.maxDifDif)
 
     console.timeEnd("findMaxProfit");
     // log( '')
@@ -375,7 +372,7 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     const budgetWOFee  = budget - (budget*buyMarketFee)
     //FIND BEST ASK PRICE FOR BUDGET
     const buyPrice = findOrderPriceLimit(exBuyOrderBook.asks, budget)
-    assert(!(buyPrice===Infinity), 'buyPrice is Infinity (not enough bids for budget)')
+    assert(!(buyPrice===Infinity), 'Not enough bids for budget')
     const baseAmount   = exBuy.decimalToPrecision(
         (budgetWOFee / buyPrice), exBuy.TRUNCATE, buyMarket.precision.amount )
     const buyCost = baseAmount * buyPrice
@@ -424,7 +421,7 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     // const sellPrice     = sellTicker.bid  //TODO Find in market orders
     //Find best bid price for budget
     const sellPrice = findOrderPriceLimit(exSellOrderBook.bids, budget)
-    assert(!(sellPrice===Infinity), 'sellPrice is Infinity (not enough asks for budget)')
+    assert(!(sellPrice===Infinity), 'Not enough asks for budget')
     const receivedAmount = baseExpected //TODO set to
     const sellCost      = receivedAmount * sellPrice
     let quoteBalance2 = sellCost
@@ -522,7 +519,7 @@ async function emulateDirections() {
             log(' ')
             printDirections(d.filteredDirections, 'estimatedProfit')
             d.filteredDirections = filterDirections(
-                d.filteredDirections, null, 0, config.minDifBidAsk, config.maxDifDif)
+                d.filteredDirections, null, 0, config.minDifBidAsk, config.minProfit, config.maxDifDif)
             log('profit > 10 '.green)
             printDirections(d.filteredDirections, 'estimatedProfit')
 

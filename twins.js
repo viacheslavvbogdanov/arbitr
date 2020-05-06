@@ -54,7 +54,8 @@ async function eDelay(e) {
 
 async function eUpdate(e) {
     debug(`eUpdate ${e.name}` )
-    await e.loadMarkets()
+    await e.loadMarkets(true)
+    // debug('market', e.markets[c.pair] )
     await eDelay(e)
     await e.fetchCurrencies()
     await eDelay(e)
@@ -66,6 +67,8 @@ async function eUpdate(e) {
 async function eCheck(e) {
     debug(`eCheck ${e.name}` )
     // TODO check it all
+    // check market orders
+    assert(e.has['createMarketOrder'], `Echange have no market orders (${e.name})`)
     // check market
     assert(e.markets,                   `Markets is not loaded (${e.name})`)
     assert(e.markets[c.pair],           `Market is not found ${c.pair} (${e.name})`)
@@ -101,6 +104,9 @@ async function watch() {
     } catch(e) {
         log('[CHECK]'.red, e.message)
         debug(e)
+        log('Waiting 10 sec after failure...')
+        await delay(10000)
+        await update() // update exchanges after delay
     }
 }
 
@@ -157,10 +163,18 @@ async function fetchOrderBook(e) {
 
 async function make() {
     debug(`make` )
-    // (TRADE -> WAIT -> TRANSFER -> WAIT)
+    // (CHECK TRADE -> TRADE -> WAIT -> TRANSFER -> WAIT)
+    await checkTrade()
     await trade()
     await transfer()
  }
+
+async function checkTrade() {
+    debug(`checkTrade` )
+    //TODO Check trade
+    //market limits.amount.min
+
+}
 
 async function trade() {
     debug(`trade` )
