@@ -1,5 +1,5 @@
 /*
- * Copyright (cfg) 2020. Viacheslav V Bogdanov
+ * Copyright © 2020. Viacheslav V Bogdanov
  * viacheslav.v.bogdanov@gmail.com
  */
 
