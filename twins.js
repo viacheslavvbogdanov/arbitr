@@ -7,61 +7,55 @@
 const assert = require('assert')
 const ccxt = require('ccxt')
 // const _      = require('underscore')
-const log = require('ololog').configure({locate: true})
+/** @member {Object} */
 const chalk = require('chalk');
 const LocalStorage = require('node-localstorage').LocalStorage
 const localStorage = new LocalStorage('./storage')
 
-const delay = ms => new Promise(res => setTimeout(res, ms))
 
 const DEBUG = true
+const log = require('ololog').configure({locate: true})
+const err = log;
 const debug = DEBUG ? log : function () {};
+
+const delay = ms => new Promise(res => setTimeout(res, ms))
+
 
 const Twins = function (config) {
 
-    let cfg = {
-        e1name: 'hitbtc',
-        e2name: 'livecoin',
-        base: 'XAUR',
-        quote: 'BTC',
-        budget: 0.001, // in quote currency
-        minProfit: 10 // in percents
-    }
-
+    let cfg = null
     let deal = {} // main deal object
-    let e1 = null
-    let e2 = null
+
 
     // construct
-    if (config) cfg = Object.assign(cfg, config)
-    debug('[constructor] Config:', cfg)
+    assert(config,'Please provide config')
+    cfg = config
     cfg.pair = cfg.base + '/' + cfg.quote
-    e1 = new ccxt[cfg.e1name]()
-    e2 = new ccxt[cfg.e2name]()
+    const log = cfg.log
+    const err = cfg.err
+    const debug = cfg.debug
+    const e1 = cfg.e1
+    const e2 = cfg.e2
+    debug('[constructor] config:', cfg)
 
     async function update() {
         try {
             await Promise.all([eUpdate(e1), eUpdate(e2)])
         } catch (e) {
-            log(chalk.red('[UPDATE]'), e.message)
+            err(chalk.red('[UPDATE]'), e.message)
             debug(e)
         }
-    }
-
-    async function eDelay(e) {
-        debug(chalk.gray(`delay ${e.rateLimit}ms`))
-        await delay(e.rateLimit)
     }
 
     async function eUpdate(e) {
         debug(`eUpdate ${e.name}`)
         await e.loadMarkets(true)
         // debug('market', e.markets[cfg.pair] )
-        await eDelay(e)
+        await e.$.delay()
         await e.fetchCurrencies()
-        await eDelay(e)
+        await e.$.delay()
         // await e.fetchBalance()
-        // await eDelay(e)
+        // await e.$.delay()
     }
 
     async function eCheck(e) {
@@ -102,7 +96,7 @@ const Twins = function (config) {
             }
 
         } catch (ex) {
-            log(chalk.red('[CHECK]'), ex.message)
+            err(chalk.red('[CHECK]'), ex.message)
             debug(ex)
             log('Waiting 10 sec after failure...')
             await delay(10000)
@@ -121,15 +115,15 @@ const Twins = function (config) {
         deal.estimatedProfit = deal.forward ? buySellProfit : sellBuyProfit
         debug('deal estimation', deal)
 
-        await Promise.all([eDelay(e1), eDelay(e2)]) //TODO Optimize - move after trade
+        await Promise.all([e1.$.delay(), e2.$.delay()]) //TODO Optimize - move after trade
     }
 
     function estimateProfit(eBuy, eSell)
     {
-        const buyPrice = findOrderPriceLimit(eBuy._orderBook.asks, cfg.budget)
+        const buyPrice = findOrderPriceLimit(eBuy.$.orderBook.asks, cfg.budget)
         assert(!(buyPrice === Infinity), 'buyPrice is Infinity (not enough asks for budget)')
 
-        const sellPrice = findOrderPriceLimit(eSell._orderBook.bids, cfg.budget)
+        const sellPrice = findOrderPriceLimit(eSell.$.orderBook.bids, cfg.budget)
         assert(!(sellPrice === Infinity), 'sellPrice is Infinity (not enough bids for budget)')
 
         return sellPrice / buyPrice * 100 - 100
@@ -158,7 +152,7 @@ const Twins = function (config) {
     }
 
     async function fetchOrderBook(e) {
-        e._orderBook = await e.fetchL2OrderBook(cfg.pair)
+        e.$.orderBook = await e.fetchL2OrderBook(cfg.pair)
     }
 
     async function make() {
@@ -213,7 +207,7 @@ const Twins = function (config) {
 
     function getStatus() {
         const s = localStorage.getItem(_status)
-        return s ? s : Twins._watching
+        return s ? s : _watching
     }
 
     let updateInterval = 0
@@ -242,13 +236,40 @@ const Twins = function (config) {
         }
     }
 }
+// ------------------
 
+const ExchangeWithDelay = function(name) {
+    const e = new ccxt[name]()
+    e.$ = {}
+    e.$.delay = async function() {
+        debug(chalk.gray(`delay ${e.rateLimit}ms`))
+        await delay(e.rateLimit)  
+    }
+    return e
+}
+
+let config = {
+    e1: ExchangeWithDelay('crex24'),
+    e2: ExchangeWithDelay('hitbtc'),
+    base: 'XNS',
+    quote: 'BTC',
+    budget: 0.001, // in quote currency
+    minProfit: 10, // in percents
+    // console
+    log: log,
+    err: err,
+    debug: debug
+}
+
+
+let trading = true
 async function main() {
-    const twin = new Twins()
+    const twin = new Twins(config)
     await twin.init()
+
     do {
         await twin.process()
-    } while (true)
+    } while (trading)
 
 }
 main().then()
