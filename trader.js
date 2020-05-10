@@ -5,7 +5,7 @@
 
 "use strict";
 
-module.exports = function (config) {
+module.exports = function (config, interfaces) {
 
     let cfg = null
     let deal = {} // main deal object
@@ -15,14 +15,15 @@ module.exports = function (config) {
     cfg = config
     cfg.pair = cfg.base + '/' + cfg.quote
 
-    const log = cfg.log
-    const err = cfg.err
-    const debug = cfg.debug
     const e1 = cfg.e1
     const e2 = cfg.e2
-    const localStorage = cfg.localStorage
-    const assert = cfg.assert
-    const delay = cfg.delay
+
+    const log = interfaces.log
+    const err = interfaces.err
+    const debug = interfaces.debug
+    const localStorage = interfaces.localStorage
+    const assert = interfaces.assert
+    const delay = interfaces.delay
 
     debug('[constructor] config:', cfg)
 
@@ -56,6 +57,7 @@ module.exports = function (config) {
         assert(e.$status.status==='ok', `Exchange status must be ok (${e.name}) ${JSON.stringify(e.$status)}`)
         // check market orders
         assert(e.has['createMarketOrder'], `Exchange have no market orders (${e.name})`)
+        // TODO check createMarketBuyOrderRequiresPrice ?
         // check market
         assert(e.markets, `Markets is not loaded (${e.name})`)
         assert(e.markets[cfg.pair], `Market is not found ${cfg.pair} (${e.name})`)

@@ -34,7 +34,9 @@ let config = {
     quote: 'BTC',
     budget: 0.001, // in quote currency
     minProfit: 10, // in percents
-    // console
+}
+
+let interfaces = {
     log: log,
     err: err,
     debug: debug,
@@ -46,7 +48,7 @@ let config = {
 
 let trading = true
 async function main() {
-    const trader = new Trader(config)
+    const trader = new Trader(config, interfaces)
     await trader.init()
 
     do {
