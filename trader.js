@@ -5,9 +5,7 @@
 
 "use strict";
 
-(function() {
-
-const Trader = function (config) {
+module.exports = function (config) {
 
     let cfg = null
     let deal = {} // main deal object
@@ -52,7 +50,7 @@ const Trader = function (config) {
         debug(`eCheck ${e.name}`)
         // TODO check it all
         // check market orders
-        assert(e.has['createMarketOrder'], `Echange have no market orders (${e.name})`)
+        assert(e.has['createMarketOrder'], `Exchange have no market orders (${e.name})`)
         // check market
         assert(e.markets, `Markets is not loaded (${e.name})`)
         assert(e.markets[cfg.pair], `Market is not found ${cfg.pair} (${e.name})`)
@@ -226,8 +224,3 @@ const Trader = function (config) {
         }
     }
 }
-
-
-module.exports = Trader
-
-}).call(this);

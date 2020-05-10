@@ -14,7 +14,7 @@ const debug = DEBUG ? log : function () {};
 
 const delay = ms => new Promise(res => setTimeout(res, ms))
 
-/** @member {Object} */
+/** @member {Function} */
 const Trader = require('./trader.js')
 
 const ExchangeWithDelay = function(name) {
@@ -46,7 +46,7 @@ let config = {
 
 let trading = true
 async function main() {
-    const trader = Trader(config)
+    const trader = new Trader(config)
     await trader.init()
 
     do {
