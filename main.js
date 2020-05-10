@@ -28,9 +28,9 @@ const ExchangeWithDelay = function(name) {
 }
 
 let config = {
-    e1: ExchangeWithDelay('crex24'),
+    e1: ExchangeWithDelay('livecoin'),
     e2: ExchangeWithDelay('hitbtc'),
-    base: 'XNS',
+    base: 'CBC',
     quote: 'BTC',
     budget: 0.001, // in quote currency
     minProfit: 10, // in percents
