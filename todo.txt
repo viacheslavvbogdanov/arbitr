@@ -1,10 +1,3 @@
-- assertions
-- find withdrawal fees
-- calc transfer time
-- optimize delay time
-
-
-// DIRECTIONS
 
 
 SECURITY:
@@ -13,97 +6,11 @@ SECURITY:
 - few my private proxies
 
 
-*    poloniex    - ID check + 2Factor + keys
-+2   binance     - ID check, IP restrict for API withdrawal
-+    hitbtc      - ID check
-+    gateio      - ID check
-+2   livecoin    - ID check
-+    kukoin      - ID sent
-+    ePayments   - ID sent
-+2   bittrex     - ID+
-+2   dsx         - ID+
-    -kraken
-    -cryptopia
-    -liqui
-    -hitbtc2
-    -coinegg
-    -ploniex
-
-Buy:
-   poloniex
-   binance
-   bittrex
-   hitbtc
-   gateio
-   kucoin
-  -kraken
-  -cryptopia
-  -liqui
-  -hitbtc2
-Sell
-   hitbtc2
-   binance
-   hitbtc
-   livecoin
-   gateio
-   kukoin
-   dsx
-  -coinegg
-  -ploniex
 
 OPTIMIZATIONS
 - Pay commissions in exchange curency to gain discount
 - iphoster VPS / google cloud / amazon
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// LOOPS DEPRICATED
-- choose price from order book / calc best trading amount
-- accurately calculate profit for chain for amount (using trading orders book)
-
-- decimal places in simulated balances
-
-- order cancelling on timeout
-- check order placing / cancelling logic
-
-LOGIC:
-
-- process deal: create order
-    - network error: repeat 10 times, delay 1 sec
-    - not filled in second
-        - if first order: cancel chain
-        - if next orders:
-            get market orders, place order for worse price (decrease profit / fix a loss)
-            //NF
-
-
-- lost collection (move back free funds to start currency)
-
-
-
-FUTURE FEATURES
-- transfer money to gateio
-- run on gateio
-
-- recalc path back (find best way to back) when loop is broken
-- move server close to exchange
-- add server IP to whitelists
-- register on exchanges that need API key (to improve results) and check for loops
-- verify accounts
-    gateio https://gate.io/myaccount/id_setup
 
 
 

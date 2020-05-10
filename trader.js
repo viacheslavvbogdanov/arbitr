@@ -4,45 +4,35 @@
  */
 
 "use strict";
-const assert = require('assert')
-const ccxt = require('ccxt')
-// const _      = require('underscore')
-/** @member {Object} */
-const chalk = require('chalk');
-const LocalStorage = require('node-localstorage').LocalStorage
-const localStorage = new LocalStorage('./storage')
 
+(function() {
 
-const DEBUG = true
-const log = require('ololog').configure({locate: true})
-const err = log;
-const debug = DEBUG ? log : function () {};
-
-const delay = ms => new Promise(res => setTimeout(res, ms))
-
-
-const Twins = function (config) {
+const Trader = function (config) {
 
     let cfg = null
     let deal = {} // main deal object
 
-
     // construct
-    assert(config,'Please provide config')
+    if (!config) throw new Error('Please provide config')
     cfg = config
     cfg.pair = cfg.base + '/' + cfg.quote
+
     const log = cfg.log
     const err = cfg.err
     const debug = cfg.debug
     const e1 = cfg.e1
     const e2 = cfg.e2
+    const localStorage = cfg.localStorage
+    const assert = cfg.assert
+    const delay = cfg.delay
+
     debug('[constructor] config:', cfg)
 
     async function update() {
         try {
             await Promise.all([eUpdate(e1), eUpdate(e2)])
         } catch (e) {
-            err(chalk.red('[UPDATE]'), e.message)
+            err('[UPDATE]', e.message)
             debug(e)
         }
     }
@@ -91,12 +81,12 @@ const Twins = function (config) {
             await check()
             await estimate()
             if (deal.estimatedProfit >= cfg.minProfit) {
-                log(chalk.green('[GOOD DEAL!] Estimated profit:'), deal.estimatedProfit)
+                log('[GOOD DEAL!] Estimated profit:', deal.estimatedProfit)
                 await make()
             }
 
         } catch (ex) {
-            err(chalk.red('[CHECK]'), ex.message)
+            err('[CHECK]', ex.message)
             debug(ex)
             log('Waiting 10 sec after failure...')
             await delay(10000)
@@ -230,46 +220,14 @@ const Twins = function (config) {
                     await waitForTransfer();
                     break
                 default:
-                    log(chalk.red('[UNKNOWN STATUS]'));
+                    err('[UNKNOWN STATUS]');
                     setStatus(_watching)
             }
         }
     }
 }
-// ------------------
-
-const ExchangeWithDelay = function(name) {
-    const e = new ccxt[name]()
-    e.$ = {}
-    e.$.delay = async function() {
-        debug(chalk.gray(`delay ${e.rateLimit}ms`))
-        await delay(e.rateLimit)  
-    }
-    return e
-}
-
-let config = {
-    e1: ExchangeWithDelay('crex24'),
-    e2: ExchangeWithDelay('hitbtc'),
-    base: 'XNS',
-    quote: 'BTC',
-    budget: 0.001, // in quote currency
-    minProfit: 10, // in percents
-    // console
-    log: log,
-    err: err,
-    debug: debug
-}
 
 
-let trading = true
-async function main() {
-    const twin = new Twins(config)
-    await twin.init()
+module.exports = Trader
 
-    do {
-        await twin.process()
-    } while (trading)
-
-}
-main().then()
+}).call(this);

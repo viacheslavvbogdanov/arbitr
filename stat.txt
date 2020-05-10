@@ -1,5 +1,0 @@
-
- binance    9%
-
-
-mongod --dbpath /home/user/mongodb-data

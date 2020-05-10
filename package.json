@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "twins": "node twins.js --harmony",
+    "main": "node main.js --harmony",
     "chances": "node chances.js --harmony",
     "start": "node index.js --harmony",
     "directions": "node directions.js --harmony",
