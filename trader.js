@@ -37,6 +37,9 @@ module.exports = function (config) {
 
     async function eUpdate(e) {
         debug(`eUpdate ${e.name}`)
+        e.$status = await e.fetchStatus()
+        // log('fetchStatus', e.$status )
+        await e.$.delay()
         await e.loadMarkets(true)
         // debug('market', e.markets[cfg.pair] )
         await e.$.delay()
@@ -49,6 +52,8 @@ module.exports = function (config) {
     async function eCheck(e) {
         debug(`eCheck ${e.name}`)
         // TODO check it all
+        // check exchange status
+        assert(e.$status.status==='ok', `Exchange status must be ok (${e.name}) ${JSON.stringify(e.$status)}`)
         // check market orders
         assert(e.has['createMarketOrder'], `Exchange have no market orders (${e.name})`)
         // check market
