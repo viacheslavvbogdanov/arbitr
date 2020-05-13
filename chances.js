@@ -261,24 +261,32 @@ function printDirections(directions, sortByField='difBidAsk'){
         colR('exBuy'.green), '  ', colL('exSell'.green),
         colL('stopMsg'.green)
     )
+    const registered = ['hitbtc', 'bittrex', 'crex24', 'huobi', 'livecoin', 'poloniex', 'whitebit']
+
     _.each( _.sortBy(directions,sortByField), (tick) => {
         // if (d.exchanges[tick.exBuyName].has.withdraw &&
         //     d.exchanges[tick.exSellName].has.deposit)
-        if (tick) log(
-            colR(tick.estimatedProfit ? tick.estimatedProfit.toFixed(2)+'%': ''),
-            colR(tick.difBidAsk.toFixed(2)+'%'),
-            colR(tick.difLast.toFixed(2)+'%'),
-            colR(tick.difdif.toFixed(0)+'%',5),
-            colR(tick.pair.blue, 12),
-            colR(tick.minQuoteVolume.toFixed(0)), _tab,
-            // d.exchanges[tick.exBuyName].has.deposit?'+':'-',
-            // d.exchanges[tick.exBuyName].has.withdraw?'+':'-', '->',
-            // d.exchanges[tick.exSellName].has.deposit?'+':'-',
-            // d.exchanges[tick.exSellName].has.withdraw?'+':'-',
-            // _tab,
-            colR(tick.exBuyName), '->', colL(tick.exSellName),
-            colL(tick.stopMsg ? tick.stopMsg : ' ').red
-        )
+        if (tick) {
+            const inRegistered =
+                registered.includes(tick.exBuyName) &&
+                registered.includes(tick.exSellName)
+            const color = inRegistered ? 'green' : 'lightGray'
+            log(
+                colR(tick.estimatedProfit ? tick.estimatedProfit.toFixed(2) + '%' : ''),
+                colR(tick.difBidAsk.toFixed(2) + '%'),
+                colR(tick.difLast.toFixed(2) + '%'),
+                colR(tick.difdif.toFixed(0) + '%', 5),
+                colR(tick.pair.blue, 12),
+                colR(tick.minQuoteVolume.toFixed(0)), _tab,
+                // d.exchanges[tick.exBuyName].has.deposit?'+':'-',
+                // d.exchanges[tick.exBuyName].has.withdraw?'+':'-', '->',
+                // d.exchanges[tick.exSellName].has.deposit?'+':'-',
+                // d.exchanges[tick.exSellName].has.withdraw?'+':'-',
+                // _tab,
+                (colR(tick.exBuyName)+' -> '+colL(tick.exSellName))[color],
+                colL(tick.stopMsg ? tick.stopMsg : ' ').red
+            )
+        }
     })
 }
 
@@ -524,6 +532,8 @@ async function emulateDirections() {
             printDirections(d.filteredDirections, 'estimatedProfit')
 
             dbInsertMany(d.filteredDirections)
+
+
             log(' ')
             log('Best estimated profit'.yellow, bestEstimatedProfit.toFixed(2), '% for budget', bestBudget)
             bestDirection.bestEstimatedProfit = bestEstimatedProfit
