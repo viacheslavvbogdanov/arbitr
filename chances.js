@@ -261,7 +261,7 @@ function printDirections(directions, sortByField='difBidAsk'){
         colR('exBuy'.green), '  ', colL('exSell'.green),
         colL('stopMsg'.green)
     )
-    const registered = ['hitbtc', 'bittrex', 'crex24', 'huobi', 'livecoin', 'poloniex', 'whitebit']
+    const registered = ['hitbtc', 'bittrex', 'crex24', 'huobiru', 'livecoin', 'poloniex', 'whitebit']
 
     _.each( _.sortBy(directions,sortByField), (tick) => {
         // if (d.exchanges[tick.exBuyName].has.withdraw &&
