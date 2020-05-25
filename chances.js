@@ -23,6 +23,12 @@ const _tab="\t"
 //const keys = require ('./keys.js')
 // const keys = []
 
+const TelegramBot = require('node-telegram-bot-api')
+const telegramToken = '1072008493:AAGTFOaIgHyVuH-OqPgEBcT54m7XZ9car5g';
+// Create a bot that uses 'polling' to fetch new updates
+const bot = new TelegramBot(telegramToken, {polling: true});
+
+
 const DEBUG = false
 const debug = DEBUG ? log : function(){};
 
@@ -562,12 +568,21 @@ async function scrape() {
     await emulateDirections()
 }
 
+// Telegram bot
+bot.on('message', (msg) => {
+    const chatId = msg.chat.id
+    // send a message to the chat acknowledging receipt of their message
+    // switch(msg)
+    bot.sendMessage(chatId, 'MERXX received your message!')
+    bot.sendMessage(chatId, '<pre>'+JSON.stringify(msg)+'</pre>' )
+});
+
 let working = true;
 
 (async () => {
     do {
+        await delay(60000) //TODO move down
         await scrape()
-        await delay(60000)
     } while (working)
 })()
 // db.close();
