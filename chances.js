@@ -30,6 +30,7 @@ const config = {
     minDifBidAsk:   10,  // in percents
     minProfit:      10,
     maxDifDif:      100,
+    budgetUSD:      100,
     mongoDBCollection: "chances8"
 }
 
@@ -261,7 +262,7 @@ function printDirections(directions, sortByField='difBidAsk'){
         colR('exBuy'.green), '  ', colL('exSell'.green),
         colL('stopMsg'.green)
     )
-    const registered = ['hitbtc', 'bittrex', 'crex24', 'huobiru', 'livecoin', 'poloniex', 'whitebit']
+    const registered = ['stex', 'hitbtc', 'bittrex', 'crex24', 'huobiru', 'livecoin', 'poloniex', 'whitebit']
 
     _.each( _.sortBy(directions,sortByField), (tick) => {
         // if (d.exchanges[tick.exBuyName].has.withdraw &&
@@ -355,8 +356,8 @@ function findOrderPriceLimit( lots, amount ) {
 // }
 
 async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBook, budget) {
-    log( 'estimateDirectionProfit'.lightGray, 'budget:', budget, colR(direction.pair.blue),
-        direction.exBuyName, '->', direction.exSellName)
+    // log( 'estimateDirectionProfit'.lightGray, 'budget:', budget, colR(direction.pair.blue),
+    //     direction.exBuyName, '->', direction.exSellName)
     // log(direction)
 
     let quoteBalance = budget
@@ -372,7 +373,7 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
 
 
     //BUY BASE ASSETS ON MAIN EXCHANGE
-    log('Buying', base, 'for', budget, quote, 'on', direction.exBuyName)
+    // log('Buying', base, 'for', budget, quote, 'on', direction.exBuyName)
     // log('buyMarket',buyMarket)
     //FIND BEST PRICE FOR BUDGET IN BUY EXCHANGE MARKET ORDERS
     //BUY (CONVERT)
@@ -389,8 +390,8 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     const buyFee = buyCost * buyMarketFee
     quoteBalance -= buyFee
     const buyFullCost   = budgetWOFee + buyFee
-    log('Purchase'.blue, baseAmount, base, 'by price', buyPrice, quote)
-    log('for budget', buyCost, '+ fee', buyFee, '=',buyFullCost, quote)
+    // log('Purchase'.blue, baseAmount, base, 'by price', buyPrice, quote)
+    // log('for budget', buyCost, '+ fee', buyFee, '=',buyFullCost, quote)
     //REAL:
     //PLACE ORDER
     //WAIT FOR COMPLETE
@@ -419,7 +420,7 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     // const baseTransferFeeCost = baseAmount * baseTransferFee
     const baseExpected = baseAmount - baseTransferFee
     // log('Transferring'.blue, baseAmount, 'fee', baseTransferFee, base, 'fee cost', baseTransferFeeCost, base, 'expected',baseExpected,base)
-    log('Transferring'.blue, baseAmount, 'fee', baseTransferFee, base, 'expected',baseExpected,base)
+    // log('Transferring'.blue, baseAmount, 'fee', baseTransferFee, base, 'expected',baseExpected,base)
     //REAL:
     //WITHDRAW
     //WAIT TRANSFER COMPLETED (Check SELL EXCHANGE balance)
@@ -437,14 +438,14 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     const sellFee = sellCost * sellMarketFee
     quoteBalance2 -= sellFee
     const sellFullCost   = sellCost - sellFee
-    log('Selling'.blue, receivedAmount, base, 'by price', sellPrice, quote)
-    log('cost', sellCost, '+ fee', sellFee, '=',sellFullCost, quote)
+    // log('Selling'.blue, receivedAmount, base, 'by price', sellPrice, quote)
+    // log('cost', sellCost, '+ fee', sellFee, '=',sellFullCost, quote)
     //REAL:
     //PLACE ORDER
     //WAIT FOR COMPLETE
 
     //TRANSFER QUOTE MONEY BACK TO MAIN EXCHANGE
-    debug( quote, exSell.currencies[quote])
+    // debug( quote, exSell.currencies[quote])
     //check qote money withdrawal on EX2
     //check withdrawal enabled on SELL EXCHANGE
     //check qute money deposit address on EX1
@@ -463,14 +464,13 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     //TODO check fee defined
     // const baseTransferFeeCost = baseAmount * baseTransferFee
     const quoteExpected = quoteBalance2 - quoteTransferFee
-    // log('Transferring'.blue, baseAmount, 'fee', baseTransferFee, base, 'fee cost', baseTransferCost, base, 'expected',baseExpected,base)
-    log('Transferring'.blue, quoteBalance2, quote, 'fee', quoteTransferFee, quote, 'expected',quoteExpected,quote)
+    // log('Transferring'.blue, quoteBalance2, quote, 'fee', quoteTransferFee, quote, 'expected',quoteExpected,quote)
     //REAL:
     //WITHDRAW FROM SELL EXCHANGE TO BUY EXCHANGE
     //WAIT TRANSFER COMPLETED (Check BUY EXCHANGE balance)
     quoteBalance += quoteExpected
     const profit = quoteBalance / startQuoteBalance
-    printDirections([direction])
+    // printDirections([direction])
     log('Profit'.green, (profit*100-100).toFixed(4)+'%', 'quote expected', quoteExpected, 'start balance',
         startQuoteBalance, quote, 'end balance', quoteBalance, quote)
     return profit
@@ -496,7 +496,7 @@ async function emulateDirections() {
                 const exBuy  = d.exchanges[direction.exBuyName]
                 const buyMarket  = exBuy.markets[direction.pair]
                 const quote = buyMarket.quote
-                const budgetUSD = 100
+                const budgetUSD = config.budgetUSD
                 let budget = 0
                 if (quote==='BTC')  budget = 0.00012 * budgetUSD
                 if (quote==='ETH')  budget = 0.005 * budgetUSD
