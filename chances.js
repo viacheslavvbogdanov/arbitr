@@ -415,7 +415,7 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     var baseTransferFeeRate
     let baseTransferFee = baseCurrency.fee
     if(!baseTransferFee) {
-        baseTransferFeeRate = 0.0025
+        baseTransferFeeRate = 0.01
         baseTransferFee = baseAmount * baseTransferFeeRate
         log('Unknown withdrawal fee. Suppose '.yellow, baseTransferFeeRate*100,'%')
     }
@@ -461,7 +461,7 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     var quoteTransferFeeRate
     let quoteTransferFee = quoteCurrency.fee
     if(!quoteTransferFee) {
-        quoteTransferFeeRate = 0.0025
+        quoteTransferFeeRate = 0.01
         quoteTransferFee = quoteBalance2 * quoteTransferFeeRate
         log('Unknown withdrawal fee. Suppose '.yellow, quoteTransferFeeRate*100,'%')
     }
@@ -537,7 +537,7 @@ async function emulateDirections() {
             log('profit > 10 '.green)
             printDirections(d.filteredDirections, 'estimatedProfit')
 
-            dbInsertMany(d.filteredDirections)
+            // dbInsertMany(d.filteredDirections)
 
 
             log(' ')
@@ -574,14 +574,14 @@ bot.on('message', (msg) => {
     // send a message to the chat acknowledging receipt of their message
     // switch(msg)
     bot.sendMessage(chatId, 'MERXX received your message!')
-    bot.sendMessage(chatId, '<pre>'+JSON.stringify(msg)+'</pre>' )
+    bot.sendMessage(chatId, '```\n'+JSON.stringify(msg)+'\n```', {parse_mode: 'Markdown'} )
 });
 
 let working = true;
 
 (async () => {
     do {
-        await delay(60000) //TODO move down
+        await delay(120*1000) //TODO move down
         await scrape()
     } while (working)
 })()

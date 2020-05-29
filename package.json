@@ -2,10 +2,10 @@
   "name": "stalker",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "chances.js",
   "scripts": {
     "main": "node main.js --harmony",
-    "chances": "node chances.js --harmony",
+    "start": "node chances.js",
     "telegram": "node telegram.js --harmony",
     "test": "mocha"
   },
