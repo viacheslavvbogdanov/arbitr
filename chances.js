@@ -11,6 +11,17 @@
 - get API keys for exchanges with no public API:
         digifinex flowbtc okex
  */
+const badRoutes = [
+    'huobiru -> hitbtc (BOX/ETH)',
+    'huobiru -> hitbtc (BOX/BTC)',
+    'stex -> livecoin (SFX/BTC)',
+    'crex24 -> huobiru (CMT/BTC)',
+    'crex24 -> hitbtc (ERD/BTC)',
+    'huobiru -> crex24 (WTC/BTC)',
+    'crex24 -> bittrex (FXC/BTC)',
+    'hitbtc -> crex24 (DRT/BTC)',
+    'huobiru -> bittrex (DTA/BTC)',
+]
 
 "use strict"
 const assert = require('assert')
@@ -24,7 +35,8 @@ const _tab="\t"
 // const keys = []
 
 const TelegramBot = require('node-telegram-bot-api')
-const telegramToken = '1072008493:AAGTFOaIgHyVuH-OqPgEBcT54m7XZ9car5g';
+const telegramToken = '1072008493:AAGTFOaIgHyVuH-OqPgEBcT54m7XZ9car5g'; // Prod
+// const telegramToken = '1122405414:AAHEltRwI96Ht6v934xSF7g4Ep9FGmtEMGQ'; //  Test
 // Create a bot that uses 'polling' to fetch new updates
 const bot = new TelegramBot(telegramToken, {polling: true});
 
@@ -34,7 +46,7 @@ const debug = DEBUG ? log : function(){};
 
 const config = {
     minDifBidAsk:   10,  // in percents
-    minProfit:      10,
+    minProfit:      5,
     maxDifDif:      100,
     budgetUSD:      100,
     mongoDBCollection: "chances8"
@@ -48,41 +60,40 @@ d.exchangeNames = ccxt.exchanges
 // }
 // // remove some exchanges
 // rmExchange('_1broker')   // require api key
-// d.exchangeNames = ['hitbtc','gateio','livecoin', 'crex24', 'stex', 'kraken',
-//     'whitebit','hitbtc2','bitz','exmo']//,'livecoin']
+// d.exchangeNames = ['hitbtc','gateio','livecoin', 'crex24', 'stex', 'kraken', 'whitebit','bitz','exmo', 'huobiru']//,'livecoin']
 
 
-const mongoClient = require("mongodb").MongoClient
-const url = "mongodb://localhost:27017/stalker"
-// { "insertTime": {"$toDate":"$_id" }}
-let mongodb
-let mongoCollection
-function dbInsertMany(arr) {
-    const insertMany = function(arr){
-        const timeStamp = new Date(Date.now()).toISOString()
-        _.each(arr, item => {
-            item.timeStamp = timeStamp;
-        })
-        mongoCollection.insertMany(arr, function(err, result){
-            if(err){
-                return log('[DB]'.red, result, err)
-            } else {
-                log(('[DB] Saved docs count:'+result.result.n).lightGray,  )
-            }
-        })
-    }
-    if (!mongoCollection) {
-        mongoClient.connect(url, function(err, database) {
-            if (err) {
-                return log('[DB]'.red, err.message.lightGray)
-            } else {
-                mongodb = database.db('stalker')
-                mongoCollection = mongodb.collection(config.mongoDBCollection)
-                insertMany(arr)
-            }
-        })
-    } else insertMany(arr)
-}
+// const mongoClient = require("mongodb").MongoClient
+// const url = "mongodb://localhost:27017/stalker"
+// // { "insertTime": {"$toDate":"$_id" }}
+// let mongodb
+// let mongoCollection
+// function dbInsertMany(arr) {
+//     const insertMany = function(arr){
+//         const timeStamp = new Date(Date.now()).toISOString()
+//         _.each(arr, item => {
+//             item.timeStamp = timeStamp;
+//         })
+//         mongoCollection.insertMany(arr, function(err, result){
+//             if(err){
+//                 return log('[DB]'.red, result, err)
+//             } else {
+//                 log(('[DB] Saved docs count:'+result.result.n).lightGray,  )
+//             }
+//         })
+//     }
+//     if (!mongoCollection) {
+//         mongoClient.connect(url, function(err, database) {
+//             if (err) {
+//                 return log('[DB]'.red, err.message.lightGray)
+//             } else {
+//                 mongodb = database.db('stalker')
+//                 mongoCollection = mongodb.collection(config.mongoDBCollection)
+//                 insertMany(arr)
+//             }
+//         })
+//     } else insertMany(arr)
+// }
 
 function colR( val, width=11) {
     let text = val.toString()
@@ -155,6 +166,8 @@ function findDirections(ticks){
                         dir.exSellName = l.exchange
                         dir.direction = f.exchange + ' -> ' + l.exchange
                         dir.chance = dir.direction + ' (' + dir.pair + ')'
+                        log(dir.chance)
+                        if (badRoutes.includes(dir.chance)) dir.stopMsg = 'Bad!'
                         dir.minQuoteVolume = Math.min(
                             f.quoteVolume,
                             l.quoteVolume)
@@ -252,22 +265,24 @@ async function getAllTickers() {
     }))
 }
 
+let lastPrint
 function printDirections(directions, sortByField='difBidAsk'){
-    log(
-        colR(''),
-        colR('difBidAsk'.green),
-        colR('difLast'.green),
-        colR('dif'.green,5),
-        colR('pair'.green,12),
-        colR('minQVol'.green), _tab,
-        // d.exchanges[tick.exBuyName].has.deposit?'+':'-',
-        // d.exchanges[tick.exBuyName].has.withdraw?'+':'-', '->',
-        // d.exchanges[tick.exSellName].has.deposit?'+':'-',
-        // d.exchanges[tick.exSellName].has.withdraw?'+':'-',
-        // _tab,
-        colR('exBuy'.green), '  ', colL('exSell'.green),
-        colL('stopMsg'.green)
-    )
+    const lines = []
+    const headerLine = colR('')+
+        colR('difBidAsk')+
+        colR('difLast')+
+        colR('dif',5)+
+        colR('pair',12)+
+        colR('minQVol')+
+        // d.exchanges[tick.exBuyName].has.deposit?'+':'-'+
+        // d.exchanges[tick.exBuyName].has.withdraw?'+':'-'+ '->'+
+        // d.exchanges[tick.exSellName].has.deposit?'+':'-'+
+        // d.exchanges[tick.exSellName].has.withdraw?'+':'-'+
+        // _tab+
+        colR('exBuy')+ '    '+ colL('exSell')
+    log( headerLine )
+    lines.push(headerLine)
+
     const registered = ['stex', 'hitbtc', 'bittrex', 'crex24', 'huobiru', 'livecoin', 'poloniex', 'whitebit']
 
     _.each( _.sortBy(directions,sortByField), (tick) => {
@@ -277,24 +292,27 @@ function printDirections(directions, sortByField='difBidAsk'){
             const inRegistered =
                 registered.includes(tick.exBuyName) &&
                 registered.includes(tick.exSellName)
-            const color = inRegistered ? 'green' : 'lightGray'
-            log(
-                colR(tick.estimatedProfit ? tick.estimatedProfit.toFixed(2) + '%' : ''),
-                colR(tick.difBidAsk.toFixed(2) + '%'),
-                colR(tick.difLast.toFixed(2) + '%'),
-                colR(tick.difdif.toFixed(0) + '%', 5),
-                colR(tick.pair.blue, 12),
-                colR(tick.minQuoteVolume.toFixed(0)), _tab,
-                // d.exchanges[tick.exBuyName].has.deposit?'+':'-',
-                // d.exchanges[tick.exBuyName].has.withdraw?'+':'-', '->',
-                // d.exchanges[tick.exSellName].has.deposit?'+':'-',
-                // d.exchanges[tick.exSellName].has.withdraw?'+':'-',
-                // _tab,
-                (colR(tick.exBuyName)+' -> '+colL(tick.exSellName))[color],
-                colL(tick.stopMsg ? tick.stopMsg : ' ').red
-            )
+            // const color = inRegistered ? 'green' : 'lightGray'
+            const line = colR(tick.estimatedProfit ? tick.estimatedProfit.toFixed(2) + '%' : '')+
+                colR(tick.difBidAsk.toFixed(2) + '%')+
+                colR(tick.difLast.toFixed(2) + '%')+
+                colR(tick.difdif.toFixed(0) + '%', 5)+
+                colR(tick.pair, 12)+
+                colR(tick.minQuoteVolume.toFixed(0))+
+                // d.exchanges[tick.exBuyName].has.deposit?'+':'-'+
+                // d.exchanges[tick.exBuyName].has.withdraw?'+':'-'+ '->'+
+                // d.exchanges[tick.exSellName].has.deposit?'+':'-'+
+                // d.exchanges[tick.exSellName].has.withdraw?'+':'-'+
+                // _tab+
+                (colR(tick.exBuyName)+' -> '+colL(tick.exSellName))+
+                colL(tick.stopMsg ? tick.stopMsg : ' ')
+            log( line )
+            lines.push(line)
+            
         }
     })
+    lines.push(new Date().toLocaleString())
+    lastPrint = lines.join('\n')
 }
 
 function findMaxProfit() {
@@ -395,7 +413,7 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     //DECREASE FEES
     const buyFee = buyCost * buyMarketFee
     quoteBalance -= buyFee
-    const buyFullCost   = budgetWOFee + buyFee
+    // const buyFullCost   = budgetWOFee + buyFee
     // log('Purchase'.blue, baseAmount, base, 'by price', buyPrice, quote)
     // log('for budget', buyCost, '+ fee', buyFee, '=',buyFullCost, quote)
     //REAL:
@@ -412,10 +430,10 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     debug( base, exBuy.currencies[base])
     // const baseTransferFeeRate = //TODO
     const baseCurrency = exBuy.currencies[base]
-    var baseTransferFeeRate
+    let baseTransferFeeRate
     let baseTransferFee = baseCurrency.fee
     if(!baseTransferFee) {
-        baseTransferFeeRate = 0.01
+        baseTransferFeeRate = 0.1
         baseTransferFee = baseAmount * baseTransferFeeRate
         log('Unknown withdrawal fee. Suppose '.yellow, baseTransferFeeRate*100,'%')
     }
@@ -423,6 +441,7 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
         base+' - base currency is not active')
     // assert(baseTransferFee,'baseTransferFee not defined')
     //TODO check fee defined
+    
     // const baseTransferFeeCost = baseAmount * baseTransferFee
     const baseExpected = baseAmount - baseTransferFee
     // log('Transferring'.blue, baseAmount, 'fee', baseTransferFee, base, 'fee cost', baseTransferFeeCost, base, 'expected',baseExpected,base)
@@ -443,7 +462,7 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     //DECREASE FEES
     const sellFee = sellCost * sellMarketFee
     quoteBalance2 -= sellFee
-    const sellFullCost   = sellCost - sellFee
+    // const sellFullCost   = sellCost - sellFee
     // log('Selling'.blue, receivedAmount, base, 'by price', sellPrice, quote)
     // log('cost', sellCost, '+ fee', sellFee, '=',sellFullCost, quote)
     //REAL:
@@ -452,16 +471,16 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
 
     //TRANSFER QUOTE MONEY BACK TO MAIN EXCHANGE
     // debug( quote, exSell.currencies[quote])
-    //check qote money withdrawal on EX2
+    //check quote money withdrawal on EX2
     //check withdrawal enabled on SELL EXCHANGE
-    //check qute money deposit address on EX1
+    //check quote money deposit address on EX1
     //check deposit enabled on MAIN EXCHANGE
     //decrease fee
     const quoteCurrency = exSell.currencies[quote]
     var quoteTransferFeeRate
     let quoteTransferFee = quoteCurrency.fee
     if(!quoteTransferFee) {
-        quoteTransferFeeRate = 0.01
+        quoteTransferFeeRate = 0.1
         quoteTransferFee = quoteBalance2 * quoteTransferFeeRate
         log('Unknown withdrawal fee. Suppose '.yellow, quoteTransferFeeRate*100,'%')
     }
@@ -534,17 +553,17 @@ async function emulateDirections() {
             printDirections(d.filteredDirections, 'estimatedProfit')
             d.filteredDirections = filterDirections(
                 d.filteredDirections, null, 0, config.minDifBidAsk, config.minProfit, config.maxDifDif)
-            log('profit > 10 '.green)
+            log(('profit > '+config.minProfit).green)
             printDirections(d.filteredDirections, 'estimatedProfit')
 
             // dbInsertMany(d.filteredDirections)
 
 
-            log(' ')
-            log('Best estimated profit'.yellow, bestEstimatedProfit.toFixed(2), '% for budget', bestBudget)
-            bestDirection.bestEstimatedProfit = bestEstimatedProfit
-            bestDirection.bestBudget = bestBudget
-            printDirections([bestDirection])
+            // log(' ')
+            // log('Best estimated profit'.yellow, bestEstimatedProfit.toFixed(2), '% for budget', bestBudget)
+            // bestDirection.bestEstimatedProfit = bestEstimatedProfit
+            // bestDirection.bestBudget = bestBudget
+            // printDirections([bestDirection])
             log()
         }else{
             log('No best direction found'.yellow)
@@ -573,16 +592,22 @@ bot.on('message', (msg) => {
     const chatId = msg.chat.id
     // send a message to the chat acknowledging receipt of their message
     // switch(msg)
-    bot.sendMessage(chatId, 'MERXX received your message!')
-    bot.sendMessage(chatId, '```\n'+JSON.stringify(msg)+'\n```', {parse_mode: 'Markdown'} )
+    if (lastPrintDate && lastPrint) {
+        if (lastPrint) {
+            bot.sendMessage(chatId, '```\n' + lastPrint + '\n```', {parse_mode: 'Markdown'})
+            log(lastPrint)
+        }
+    } else {
+        bot.sendMessage(chatId, 'Warming Up. Please Wait...')
+    }
 });
 
 let working = true;
 
 (async () => {
     do {
-        await delay(120*1000) //TODO move down
         await scrape()
+        await delay(120*1000) //TODO move down
     } while (working)
 })()
 // db.close();
