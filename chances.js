@@ -166,7 +166,7 @@ function findDirections(ticks){
                         dir.exSellName = l.exchange
                         dir.direction = f.exchange + ' -> ' + l.exchange
                         dir.chance = dir.direction + ' (' + dir.pair + ')'
-                        log(dir.chance)
+                        // log(dir.chance)
                         if (badRoutes.includes(dir.chance)) dir.stopMsg = 'Bad!'
                         dir.minQuoteVolume = Math.min(
                             f.quoteVolume,
@@ -435,6 +435,7 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     if(!baseTransferFee) {
         baseTransferFeeRate = 0.1
         baseTransferFee = baseAmount * baseTransferFeeRate
+        direction.stopMsg = 'BW fee?'
         log('Unknown withdrawal fee. Suppose '.yellow, baseTransferFeeRate*100,'%')
     }
     assert((typeof baseCurrency.active == 'undefined') || baseCurrency.active,
@@ -482,6 +483,7 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     if(!quoteTransferFee) {
         quoteTransferFeeRate = 0.1
         quoteTransferFee = quoteBalance2 * quoteTransferFeeRate
+        direction.stopMsg = 'SW fee?'
         log('Unknown withdrawal fee. Suppose '.yellow, quoteTransferFeeRate*100,'%')
     }
     assert((typeof quoteCurrency.active == 'undefined') || quoteCurrency.active, quote+' - quote currency is not active')
@@ -607,7 +609,7 @@ let working = true;
 (async () => {
     do {
         await scrape()
-        await delay(120*1000) //TODO move down
+        await delay(180*1000) //TODO move down
     } while (working)
 })()
 // db.close();
