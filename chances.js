@@ -35,14 +35,19 @@ const _tab="\t"
 // const keys = []
 
 const TelegramBot = require('node-telegram-bot-api')
-const telegramToken = '1072008493:AAGTFOaIgHyVuH-OqPgEBcT54m7XZ9car5g'; // Prod
-// const telegramToken = '1122405414:AAHEltRwI96Ht6v934xSF7g4Ep9FGmtEMGQ'; //  Test
-// Create a bot that uses 'polling' to fetch new updates
-const bot = new TelegramBot(telegramToken, {polling: true});
-
 
 const DEBUG = false
 const debug = DEBUG ? log : function(){};
+
+const telegramToken = DEBUG ?
+    '1122405414:AAHEltRwI96Ht6v934xSF7g4Ep9FGmtEMGQ': //  Test
+    '1072008493:AAGTFOaIgHyVuH-OqPgEBcT54m7XZ9car5g' // Prod
+// Create a bot that uses 'polling' to fetch new updates
+const bot = new TelegramBot(telegramToken, {polling: true});
+
+let d = {} // Main data variable
+d.exchangeNames = ccxt.exchanges
+if (DEBUG) d.exchangeNames = ['hitbtc','gateio','livecoin', 'crex24', 'stex', 'kraken', 'whitebit','bitz','exmo', 'huobiru']//,'livecoin']
 
 const config = {
     minDifBidAsk:   10,  // in percents
@@ -52,15 +57,6 @@ const config = {
     mongoDBCollection: "chances8"
 }
 
-let d = {} // Main data variable
-
-d.exchangeNames = ccxt.exchanges
-// let rmExchange = function( name ) {
-//     d.exchangeNames.splice(d.exchangeNames.indexOf(name), 1)
-// }
-// // remove some exchanges
-// rmExchange('_1broker')   // require api key
-// d.exchangeNames = ['hitbtc','gateio','livecoin', 'crex24', 'stex', 'kraken', 'whitebit','bitz','exmo', 'huobiru']//,'livecoin']
 
 
 // const mongoClient = require("mongodb").MongoClient
@@ -167,7 +163,6 @@ function findDirections(ticks){
                         dir.direction = f.exchange + ' -> ' + l.exchange
                         dir.chance = dir.direction + ' (' + dir.pair + ')'
                         // log(dir.chance)
-                        if (badRoutes.includes(dir.chance)) dir.stopMsg = 'Bad!'
                         dir.minQuoteVolume = Math.min(
                             f.quoteVolume,
                             l.quoteVolume)
@@ -266,7 +261,7 @@ async function getAllTickers() {
 }
 
 let lastPrint
-function printDirections(directions, sortByField='difBidAsk'){
+function printDirections(directions, sortByField='difBidAsk', result=false){
     const lines = []
     const headerLine = colR('')+
         colR('difBidAsk')+
@@ -311,8 +306,8 @@ function printDirections(directions, sortByField='difBidAsk'){
             
         }
     })
-    lines.push(new Date().toLocaleString())
-    lastPrint = lines.join('\n')
+    // lines.push(new Date().toLocaleString())
+    if (result) lastPrint = lines.join('\n')
 }
 
 function findMaxProfit() {
@@ -383,6 +378,7 @@ async function estimateDirectionProfit(direction, exBuyOrderBook, exSellOrderBoo
     // log( 'estimateDirectionProfit'.lightGray, 'budget:', budget, colR(direction.pair.blue),
     //     direction.exBuyName, '->', direction.exSellName)
     // log(direction)
+    if (badRoutes.includes(direction.chance)) return -666
 
     let quoteBalance = budget
     const startQuoteBalance = quoteBalance
@@ -556,7 +552,7 @@ async function emulateDirections() {
             d.filteredDirections = filterDirections(
                 d.filteredDirections, null, 0, config.minDifBidAsk, config.minProfit, config.maxDifDif)
             log(('profit > '+config.minProfit).green)
-            printDirections(d.filteredDirections, 'estimatedProfit')
+            printDirections(d.filteredDirections, 'estimatedProfit', true)
 
             // dbInsertMany(d.filteredDirections)
 
@@ -593,14 +589,12 @@ async function scrape() {
 bot.on('message', (msg) => {
     const chatId = msg.chat.id
     // send a message to the chat acknowledging receipt of their message
-    // switch(msg)
-    if (lastPrintDate && lastPrint) {
-        if (lastPrint) {
-            bot.sendMessage(chatId, '```\n' + lastPrint + '\n```', {parse_mode: 'Markdown'})
-            log(lastPrint)
-        }
+    // log(msg)
+    if (lastPrint) {
+        bot.sendMessage(chatId, '```\n' + lastPrint + '\n```', {parse_mode: 'Markdown'})
+        log(lastPrint)
     } else {
-        bot.sendMessage(chatId, 'Warming Up. Please Wait...')
+        bot.sendMessage(chatId, 'Просыпаюсь ото сна, подожди малямс...')
     }
 });
 
